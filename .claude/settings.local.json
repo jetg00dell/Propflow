@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m json.tool)",
+      "Bash(xargs grep *)",
+      "Bash(node *)"
+    ]
+  }
+}
