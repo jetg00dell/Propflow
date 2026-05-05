@@ -16,9 +16,9 @@ function getPropertyTypeLabel(type: string) {
 
 function getOccupancyColor(occupied: number, total: number) {
   const rate = total === 0 ? 0 : occupied / total
-  if (rate === 1) return 'text-emerald-400'
-  if (rate >= 0.5) return 'text-amber-400'
-  return 'text-red-400'
+  if (rate === 1) return 'text-[#1C7BC0]'
+  if (rate >= 0.5) return 'text-amber-500'
+  return 'text-red-500'
 }
 
 export default async function PropertiesPage() {
@@ -78,35 +78,35 @@ export default async function PropertiesPage() {
   const totalOccupied = propertiesWithStats.reduce((s, p) => s + p.occupied, 0)
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
+    <div className="min-h-screen bg-[#F5F6FA] p-6">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white">Properties</h1>
-          <p className="text-gray-400 text-sm mt-1">
+          <h1 className="text-2xl font-semibold text-[#1A2B4A]">Properties</h1>
+          <p className="text-gray-500 text-sm mt-1">
             {propertiesWithStats.length} properties · {totalUnits} units
           </p>
         </div>
-        <button className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        <button className="bg-[#1C7BC0] hover:bg-[#1669A8] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
           + Add Property
         </button>
       </div>
 
       {/* Summary bar */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Monthly Revenue</p>
-          <p className="text-white text-xl font-bold">${totalRevenue.toLocaleString()}</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Monthly Revenue</p>
+          <p className="text-[#1C7BC0] text-xl font-semibold">${totalRevenue.toLocaleString()}</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Occupancy</p>
-          <p className="text-white text-xl font-bold">
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Occupancy</p>
+          <p className="text-[#1A2B4A] text-xl font-semibold">
             {totalUnits === 0 ? '—' : Math.round((totalOccupied / totalUnits) * 100)}%
           </p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Vacant Units</p>
-          <p className="text-white text-xl font-bold">{totalUnits - totalOccupied}</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Vacant Units</p>
+          <p className="text-[#1A2B4A] text-xl font-semibold">{totalUnits - totalOccupied}</p>
         </div>
       </div>
 
@@ -116,33 +116,33 @@ export default async function PropertiesPage() {
           <Link
             key={property.id}
             href={`/properties/${property.id}`}
-            className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-600 hover:bg-gray-800/50 transition-all group"
+            className="bg-white border border-gray-200 rounded-xl p-5 hover:border-[#1C7BC0] hover:bg-[#F0F7FF] transition-all group"
           >
             {/* Address */}
             <div className="mb-4">
               <div className="flex items-start justify-between gap-2">
-                <h2 className="text-white font-semibold text-sm leading-snug group-hover:text-blue-400 transition-colors">
+                <h2 className="text-[#1A2B4A] font-semibold text-sm leading-snug group-hover:text-[#1C7BC0] transition-colors">
                   {property.address}
                 </h2>
-                <span className="text-gray-500 text-xs whitespace-nowrap mt-0.5">→</span>
+                <span className="text-gray-400 text-xs whitespace-nowrap mt-0.5">→</span>
               </div>
-              <p className="text-gray-400 text-xs mt-0.5">
+              <p className="text-gray-500 text-xs mt-0.5">
                 {property.city}, {property.state}
               </p>
             </div>
 
             {/* Type badge */}
             <div className="mb-4">
-              <span className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 rounded-md border border-gray-700">
+              <span className="bg-[#F0F7FF] text-[#1C7BC0] text-xs px-2 py-0.5 rounded-md">
                 {getPropertyTypeLabel(property.property_type ?? '')}
               </span>
             </div>
 
             {/* Stats row */}
-            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-800">
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
               <div>
                 <p className="text-gray-500 text-xs">Units</p>
-                <p className="text-white text-sm font-semibold">{property.total}</p>
+                <p className="text-[#1A2B4A] text-sm font-semibold">{property.total}</p>
               </div>
               <div>
                 <p className="text-gray-500 text-xs">Occupancy</p>
@@ -152,7 +152,7 @@ export default async function PropertiesPage() {
               </div>
               <div>
                 <p className="text-gray-500 text-xs">Revenue</p>
-                <p className="text-white text-sm font-semibold">
+                <p className="text-[#1A2B4A] text-sm font-semibold">
                   {property.monthlyRevenue === 0 ? '—' : `$${property.monthlyRevenue.toLocaleString()}`}
                 </p>
               </div>

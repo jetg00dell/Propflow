@@ -50,27 +50,27 @@ function daysUntil(dateStr: string | null) {
 }
 
 function EndDateCell({ endDate }: { endDate: string | null }) {
-  if (!endDate) return <span className="text-gray-600 text-xs">—</span>
+  if (!endDate) return <span className="text-gray-400 text-xs">—</span>
   const days = daysUntil(endDate)
   const text = formatDate(endDate)
-  if (days !== null && days < 0) return <span className="text-red-400 text-xs">{text}</span>
-  if (days !== null && days <= 90) return <span className="text-amber-400 text-xs">{text}</span>
-  return <span className="text-gray-400 text-xs">{text}</span>
+  if (days !== null && days < 0) return <span className="text-red-600 text-xs">{text}</span>
+  if (days !== null && days <= 90) return <span className="text-amber-500 text-xs">{text}</span>
+  return <span className="text-gray-500 text-xs">{text}</span>
 }
 
 function StatusBadge({ status }: { status: string | null }) {
   if (status === 'active')
-    return <span className="bg-emerald-900/50 text-emerald-400 border border-emerald-800 text-xs px-2 py-0.5 rounded-full">Active</span>
+    return <span className="bg-[#F0F7FF] text-[#1C7BC0] text-xs px-2 py-0.5 rounded-full">Active</span>
   if (status === 'expired')
-    return <span className="bg-red-900/50 text-red-400 border border-red-800 text-xs px-2 py-0.5 rounded-full">Expired</span>
-  return <span className="bg-gray-800 text-gray-400 border border-gray-700 text-xs px-2 py-0.5 rounded-full capitalize">{status ?? '—'}</span>
+    return <span className="bg-red-50 text-red-600 text-xs px-2 py-0.5 rounded-full">Expired</span>
+  return <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full capitalize">{status ?? '—'}</span>
 }
 
 function SortIcon({ col, active, dir }: { col: SortCol; active: SortCol; dir: SortDir }) {
-  if (col !== active) return <ArrowUp size={12} className="text-gray-700" />
+  if (col !== active) return <ArrowUp size={12} className="text-gray-400" />
   return dir === 'asc'
-    ? <ArrowUp size={12} className="text-blue-400" />
-    : <ArrowDown size={12} className="text-blue-400" />
+    ? <ArrowUp size={12} className="text-[#1C7BC0]" />
+    : <ArrowDown size={12} className="text-[#1C7BC0]" />
 }
 
 function sortLeases(rows: LeaseRow[], col: SortCol, dir: SortDir): LeaseRow[] {
@@ -121,32 +121,32 @@ export default function LeasesClient({ leases, stats }: { leases: LeaseRow[]; st
 
   const sorted = sortLeases(filtered, sortCol, sortDir)
 
-  const thBase = 'text-left text-gray-400 text-xs uppercase tracking-wider px-5 py-3'
-  const thSortable = `${thBase} cursor-pointer select-none hover:text-gray-200 transition-colors`
+  const thBase = 'text-left text-gray-400 text-xs font-semibold uppercase tracking-wide px-5 py-3'
+  const thSortable = `${thBase} cursor-pointer select-none hover:text-[#1C7BC0] transition-colors`
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6">
+    <div className="min-h-screen bg-[#F5F6FA] p-6">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Leases</h1>
-        <p className="text-gray-400 text-sm mt-1">{stats.total} leases</p>
+        <h1 className="text-2xl font-semibold text-[#1A2B4A]">Leases</h1>
+        <p className="text-gray-500 text-sm mt-1">{stats.total} leases</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Total Leases</p>
-          <p className="text-white text-xl font-bold">{stats.total}</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Total Leases</p>
+          <p className="text-[#1A2B4A] text-xl font-semibold">{stats.total}</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Active</p>
-          <p className="text-white text-xl font-bold">{stats.active}</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Active</p>
+          <p className="text-[#1C7BC0] text-xl font-semibold">{stats.active}</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Expiring Soon</p>
-          <p className="text-amber-400 text-xl font-bold">{stats.expiringSoon}</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Expiring Soon</p>
+          <p className="text-amber-500 text-xl font-semibold">{stats.expiringSoon}</p>
         </div>
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <p className="text-gray-400 text-xs uppercase tracking-wider mb-1">Monthly Rent</p>
-          <p className="text-white text-xl font-bold">${stats.monthlyRent.toLocaleString()}</p>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Monthly Rent</p>
+          <p className="text-[#1C7BC0] text-xl font-semibold">${stats.monthlyRent.toLocaleString()}</p>
         </div>
       </div>
 
@@ -156,11 +156,11 @@ export default function LeasesClient({ leases, stats }: { leases: LeaseRow[]; st
           placeholder="Search by property or tenant name..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-gray-600 w-full max-w-md"
+          className="bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm text-[#1A2B4A] placeholder-gray-400 focus:outline-none focus:border-[#1C7BC0] w-full max-w-md"
         />
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         {sorted.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-12">
             {search ? 'No leases match your search.' : 'No leases found.'}
@@ -168,7 +168,7 @@ export default function LeasesClient({ leases, stats }: { leases: LeaseRow[]; st
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-gray-100">
                 <th className={thSortable} onClick={() => handleSort('property')}>
                   <span className="flex items-center gap-1">
                     Property / Unit
@@ -197,11 +197,11 @@ export default function LeasesClient({ leases, stats }: { leases: LeaseRow[]; st
             </thead>
             <tbody>
               {sorted.map(l => (
-                <tr key={l.id} className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors">
+                <tr key={l.id} className="border-b border-gray-100 hover:bg-[#F0F7FF] transition-colors">
                   <td className="px-5 py-3">
                     <Link
                       href={`/leases/${l.id}`}
-                      className="text-white text-sm font-medium hover:text-blue-400 transition-colors"
+                      className="text-[#1A2B4A] text-sm font-medium hover:text-[#1C7BC0] transition-colors"
                     >
                       {l.property_name ?? '—'}
                     </Link>
@@ -216,27 +216,27 @@ export default function LeasesClient({ leases, stats }: { leases: LeaseRow[]; st
                           <div key={t.id} className="flex items-center gap-1.5">
                             <Link
                               href={`/tenants/${t.id}`}
-                              className="text-gray-300 text-sm hover:text-blue-400 transition-colors"
+                              className="text-gray-600 text-sm hover:text-[#1C7BC0] transition-colors"
                             >
                               {t.first_name} {t.last_name}
                             </Link>
                             {!t.is_primary && (
-                              <span className="text-gray-600 text-xs border border-gray-700 rounded px-1 py-0.5 leading-none">Co</span>
+                              <span className="text-gray-500 text-xs border border-gray-200 rounded px-1 py-0.5 leading-none">Co</span>
                             )}
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-gray-600 text-sm">—</span>
+                      <span className="text-gray-400 text-sm">—</span>
                     )}
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-[#1A2B4A] text-sm font-medium">
                       {l.monthly_rent != null ? `$${l.monthly_rent.toLocaleString()}` : '—'}
                     </span>
                   </td>
                   <td className="px-5 py-3 hidden md:table-cell">
-                    <span className="text-gray-400 text-xs">{formatDate(l.start_date)}</span>
+                    <span className="text-gray-500 text-xs">{formatDate(l.start_date)}</span>
                   </td>
                   <td className="px-5 py-3">
                     <EndDateCell endDate={l.end_date} />
