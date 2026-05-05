@@ -173,9 +173,9 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                 className="bg-white border border-gray-200 rounded-xl overflow-hidden"
               >
                 {/* Collapsed header row */}
-                <button
+                <div
                   onClick={() => toggleExpand(p.id)}
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#F0F7FF] transition-colors text-left"
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-[#F0F7FF] transition-colors text-left cursor-pointer"
                 >
                   <div className="flex-1 min-w-0 mr-4">
                     <p className="text-sm font-semibold text-[#1A2B4A] truncate">{p.name}</p>
@@ -208,7 +208,7 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                     </button>
                     <span className={`text-gray-400 text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>▼</span>
                   </div>
-                </button>
+                </div>
 
                 {/* Expanded detail panel */}
                 {isExpanded && (
