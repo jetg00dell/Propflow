@@ -54,15 +54,15 @@ function timeAgo(dateStr: string) {
 }
 
 type ExpiringLease = {
-  id: string;
-  end_date: string;
-  unit_id: string;
+  id: string
+  end_date: string
+  unit_id: string
   units: {
-    unit_number: string;
-    property_id: string;
-    properties: { name: string } | null;
-  } | null;
-};
+    unit_number: string
+    property_id: string
+    properties: { name: string }[] | null
+  }[] | null
+}
 
 export default function DashboardHome({ units, recentPayments, maintenanceItems, expiringLeases }: {
   units: any[];
@@ -183,7 +183,7 @@ export default function DashboardHome({ units, recentPayments, maintenanceItems,
                     <div key={i} className="flex items-start gap-3">
                       <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${days < 45 ? "bg-red-600" : "bg-amber-500"}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-700 truncate">{lease.units?.properties?.name} — Unit {lease.units?.unit_number}</p>
+                        <p className="text-xs font-medium text-gray-700 truncate">{lease.units?.[0]?.properties?.[0]?.name} — Unit {lease.units?.[0]?.unit_number}</p>
                         <p className="text-[10px] text-gray-400">{new Date(lease.end_date).toLocaleDateString()}</p>
                       </div>
                       <span className={`text-[10px] font-bold flex-shrink-0 ${days < 45 ? "text-red-600" : "text-amber-500"}`}>
