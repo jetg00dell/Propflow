@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     supabase.from('units').select('id, status, market_rent'),
     supabase.from('payments').select('id, amount, status, paid_date, due_date, type').order('created_at', { ascending: false }).limit(5),
     supabase.from('maintenance_requests').select('id, title, priority, status, created_at, category').eq('status', 'open').order('created_at', { ascending: false }).limit(4),
-    supabase.from('leases').select('id, end_date, unit_id').gte('end_date', new Date().toISOString()).lte('end_date', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()).order('end_date', { ascending: true }),
+    supabase.from('leases').select('id, end_date, unit_id, units(unit_number, property_id, properties(name))').gte('end_date', new Date().toISOString()).lte('end_date', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()).order('end_date', { ascending: true }),
   ])
 
   return (

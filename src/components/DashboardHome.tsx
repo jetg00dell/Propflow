@@ -53,11 +53,22 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+type ExpiringLease = {
+  id: string;
+  end_date: string;
+  unit_id: string;
+  units: {
+    unit_number: string;
+    property_id: string;
+    properties: { name: string } | null;
+  } | null;
+};
+
 export default function DashboardHome({ units, recentPayments, maintenanceItems, expiringLeases }: {
   units: any[];
   recentPayments: any[];
   maintenanceItems: any[];
-  expiringLeases: any[];
+  expiringLeases: ExpiringLease[];
 }) {
   const totalUnits = units.length;
   const occupiedUnits = units.filter(u => u.status === "occupied").length;
@@ -166,14 +177,14 @@ export default function DashboardHome({ units, recentPayments, maintenanceItems,
               <p className="text-gray-400 text-xs text-center py-4">No leases expiring soon</p>
             ) : (
               <div className="space-y-3">
-                {expiringLeases.map((l, i) => {
-                  const days = daysUntil(l.end_date);
+                {expiringLeases.map((lease, i) => {
+                  const days = daysUntil(lease.end_date);
                   return (
                     <div key={i} className="flex items-start gap-3">
                       <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${days < 45 ? "bg-red-600" : "bg-amber-500"}`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-700 truncate">Unit {l.unit_id?.slice(0, 8)}</p>
-                        <p className="text-[10px] text-gray-400">{new Date(l.end_date).toLocaleDateString()}</p>
+                        <p className="text-xs font-medium text-gray-700 truncate">{lease.units?.properties?.name} — Unit {lease.units?.unit_number}</p>
+                        <p className="text-[10px] text-gray-400">{new Date(lease.end_date).toLocaleDateString()}</p>
                       </div>
                       <span className={`text-[10px] font-bold flex-shrink-0 ${days < 45 ? "text-red-600" : "text-amber-500"}`}>
                         {days}d
