@@ -56,12 +56,8 @@ function timeAgo(dateStr: string) {
 type ExpiringLease = {
   id: string
   end_date: string
-  unit_id: string
-  units: {
-    unit_number: string
-    property_id: string
-    properties: { name: string }[] | null
-  }[] | null
+  unit_number: string | null
+  property_name: string | null
 }
 
 export default function DashboardHome({ units, recentPayments, maintenanceItems, expiringLeases }: {
@@ -174,7 +170,7 @@ export default function DashboardHome({ units, recentPayments, maintenanceItems,
               <span className="text-[10px] bg-amber-50 text-amber-500 px-2 py-0.5 rounded-full font-semibold">{expiringCount}</span>
             </div>
             {expiringLeases.length === 0 ? (
-              <p className="text-gray-400 text-xs text-center py-4">No leases expiring soon</p>
+              <p className="text-xs font-medium text-gray-700 truncate">{lease.property_name} — Unit {lease.unit_number}</p>
             ) : (
               <div className="space-y-3">
                 {expiringLeases.map((lease, i) => {
