@@ -57,7 +57,7 @@ export default async function PaymentsPage() {
   const { data: payments } = chargeIds.length > 0
     ? await admin
         .from('payments')
-        .select('id, charge_id, amount, paid_by, method, paid_date, note')
+        .select('id, charge_id, amount, paid_by, method, paid_date, notes')
         .in('charge_id', chargeIds)
     : { data: [] }
 

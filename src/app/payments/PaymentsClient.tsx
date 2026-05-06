@@ -12,7 +12,7 @@ type Payment = {
   paid_by: string
   method: string
   paid_date: string
-  note: string | null
+  notes: string | null
 }
 
 type ChargeRow = {
@@ -47,7 +47,14 @@ function todayStr() {
   return new Date().toISOString().split('T')[0]
 }
 
-const METHODS = ['ACH', 'Check', 'Venmo', 'Zelle', 'Cash', 'Other']
+const METHODS = [
+  { value: 'ach', label: 'ACH' },
+  { value: 'check', label: 'Check' },
+  { value: 'venmo', label: 'Venmo' },
+  { value: 'zelle', label: 'Zelle' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'other', label: 'Other' },
+]
 
 function PaidCell({ expected, paid }: { expected: number; paid: number }) {
   if (expected === 0) return <span className="text-xs text-gray-400">—</span>
@@ -84,10 +91,10 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
   onSaved: () => void
 }) {
   const [amount, setAmount] = useState('')
-  const [paidBy, setPaidBy] = useState<'HA' | 'Tenant'>('Tenant')
-  const [method, setMethod] = useState('ACH')
+  const [paidBy, setPaidBy] = useState<'ha' | 'tenant'>('tenant')
+  const [method, setMethod] = useState('ach')
   const [paidDate, setPaidDate] = useState(todayStr())
-  const [note, setNote] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -105,7 +112,7 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
           paid_by: paidBy,
           method,
           paid_date: paidDate,
-          note: note || null,
+          notes: notes || null,
         }),
       })
       if (!res.ok) {
@@ -144,7 +151,7 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">Paid by</label>
             <div className="flex gap-3">
-              {(['HA', 'Tenant'] as const).map(v => (
+              {([['ha', 'HA'], ['tenant', 'Tenant']] as const).map(([v, label]) => (
                 <button
                   key={v}
                   type="button"
@@ -155,7 +162,7 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
                       : 'bg-white text-gray-500 border-gray-200 hover:border-[#1C7BC0]'
                   }`}
                 >
-                  {v}
+                  {label}
                 </button>
               ))}
             </div>
@@ -167,7 +174,7 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
               onChange={e => setMethod(e.target.value)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
             >
-              {METHODS.map(m => <option key={m}>{m}</option>)}
+              {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
           <div>
@@ -185,8 +192,8 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
               Note <span className="text-gray-300 font-normal">(optional)</span>
             </label>
             <textarea
-              value={note}
-              onChange={e => setNote(e.target.value)}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
               rows={2}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30 resize-none"
               placeholder="Any notes…"
@@ -236,11 +243,14 @@ function AddChargeModal({ leases, onClose, onSaved }: {
     setError(null)
     try {
       const supabase = createClient()
+      const ha = parseFloat(haAmount) || 0
+      const tenant = parseFloat(tenantAmount) || 0
       const { error: err } = await supabase.from('rent_charges').insert({
         lease_id: leaseId,
         charge_month: `${chargeMonth}-01`,
-        ha_amount: parseFloat(haAmount) || 0,
-        tenant_amount: parseFloat(tenantAmount) || 0,
+        ha_amount: ha,
+        tenant_amount: tenant,
+        total_due: ha + tenant,
       })
       if (err) throw new Error(err.message)
       onSaved()
@@ -351,11 +361,11 @@ export default function PaymentsClient({ charges, leases }: {
   const currentMonthCharges = charges.filter(c => c.charge_month.startsWith(currentMonthPrefix))
 
   const haCollected = currentMonthCharges.reduce(
-    (s, c) => s + c.payments.filter(p => p.paid_by === 'HA').reduce((a, p) => a + p.amount, 0),
+    (s, c) => s + c.payments.filter(p => p.paid_by === 'ha').reduce((a, p) => a + p.amount, 0),
     0
   )
   const tenantCollected = currentMonthCharges.reduce(
-    (s, c) => s + c.payments.filter(p => p.paid_by === 'Tenant').reduce((a, p) => a + p.amount, 0),
+    (s, c) => s + c.payments.filter(p => p.paid_by === 'tenant').reduce((a, p) => a + p.amount, 0),
     0
   )
   const totalExpected = currentMonthCharges.reduce((s, c) => s + c.ha_amount + c.tenant_amount, 0)
@@ -422,8 +432,8 @@ export default function PaymentsClient({ charges, leases }: {
                 </tr>
               ) : (
                 charges.map(c => {
-                  const haPaid = c.payments.filter(p => p.paid_by === 'HA').reduce((s, p) => s + p.amount, 0)
-                  const tenantPaid = c.payments.filter(p => p.paid_by === 'Tenant').reduce((s, p) => s + p.amount, 0)
+                  const haPaid = c.payments.filter(p => p.paid_by === 'ha').reduce((s, p) => s + p.amount, 0)
+                  const tenantPaid = c.payments.filter(p => p.paid_by === 'tenant').reduce((s, p) => s + p.amount, 0)
                   const totalPaid = haPaid + tenantPaid
                   const totalDue = c.ha_amount + c.tenant_amount
                   return (
