@@ -47,41 +47,43 @@ export default function LoginPage() {
     setResetLoading(false)
   }
 
+  const inputCls = 'w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-[#1A2B4A] placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30'
+
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#F5F6FA] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">PropFlow</h1>
+          <h1 className="text-3xl font-bold text-[#1A2B4A]">PropFlow</h1>
           <p className="text-gray-400 mt-2">J Goodell Homes</p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-800">
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
           {forgotMode ? (
             <>
-              <h2 className="text-xl font-semibold text-white mb-2">Reset your password</h2>
-              <p className="text-gray-400 text-sm mb-6">Enter your email and we'll send you a reset link.</p>
+              <h2 className="text-xl font-semibold text-[#1A2B4A] mb-2">Reset your password</h2>
+              <p className="text-gray-500 text-sm mb-6">Enter your email and we'll send you a reset link.</p>
 
               {resetSent ? (
-                <div className="px-4 py-3 bg-green-900/40 border border-green-700 rounded-lg text-green-400 text-sm">
+                <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
                   Check your email for a reset link.
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
                     <input
                       type="email"
                       value={resetEmail}
                       onChange={e => setResetEmail(e.target.value)}
                       placeholder="you@example.com"
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className={inputCls}
                     />
                   </div>
-                  {resetError && <p className="text-red-400 text-sm">{resetError}</p>}
+                  {resetError && <p className="text-red-600 text-sm">{resetError}</p>}
                   <button
                     onClick={handleForgotPassword}
                     disabled={resetLoading || !resetEmail}
-                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-semibold rounded-lg transition-colors"
+                    className="w-full py-3 bg-[#1C7BC0] hover:bg-[#1C7BC0]/90 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
                   >
                     {resetLoading ? 'Sending...' : 'Send reset link'}
                   </button>
@@ -90,62 +92,62 @@ export default function LoginPage() {
 
               <button
                 onClick={() => { setForgotMode(false); setResetSent(false); setResetError('') }}
-                className="mt-4 text-sm text-gray-400 hover:text-gray-300 transition-colors"
+                className="mt-4 text-sm text-gray-400 hover:text-gray-600 transition-colors"
               >
                 ← Back to sign in
               </button>
             </>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-white mb-6">Sign in to your account</h2>
+              <h2 className="text-xl font-semibold text-[#1A2B4A] mb-6">Sign in to your account</h2>
 
               <form onSubmit={handleLogin} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={inputCls}
                     placeholder="you@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Password</label>
                   <input
                     type="password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={inputCls}
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     onClick={() => { setForgotMode(true); setResetEmail(email) }}
-                    className="mt-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                    className="mt-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     Forgot password?
                   </button>
                 </div>
 
-                {error && <p className="text-red-400 text-sm">{error}</p>}
+                {error && <p className="text-red-600 text-sm">{error}</p>}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-semibold rounded-lg transition-colors"
+                  className="w-full py-3 bg-[#1C7BC0] hover:bg-[#1C7BC0]/90 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
                 >
                   {loading ? 'Signing in...' : 'Sign in'}
                 </button>
               </form>
 
               <div className="mt-6 text-center">
-                <p className="text-gray-400 text-sm">
+                <p className="text-gray-500 text-sm">
                   Need an account?{' '}
-                  <a href="/signup" className="text-blue-400 hover:text-blue-300">
+                  <a href="/signup" className="text-[#1C7BC0] hover:underline">
                     Request access
                   </a>
                 </p>

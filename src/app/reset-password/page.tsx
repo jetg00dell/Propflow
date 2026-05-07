@@ -35,21 +35,23 @@ export default function ResetPasswordPage() {
     }
   }
 
+  const inputCls = 'w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-[#1A2B4A] placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30'
+
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#F5F6FA] flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">PropFlow</h1>
+          <h1 className="text-3xl font-bold text-[#1A2B4A]">PropFlow</h1>
           <p className="text-gray-400 mt-2">J Goodell Homes</p>
         </div>
 
-        <div className="bg-gray-900 rounded-2xl p-8 shadow-xl border border-gray-800">
-          <h2 className="text-xl font-semibold text-white mb-2">Set a new password</h2>
-          <p className="text-gray-400 text-sm mb-6">Choose a strong password for your account.</p>
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200">
+          <h2 className="text-xl font-semibold text-[#1A2B4A] mb-2">Set a new password</h2>
+          <p className="text-gray-500 text-sm mb-6">Choose a strong password for your account.</p>
 
           <form onSubmit={handleReset} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">New password</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">New password</label>
               <input
                 type="password"
                 value={password}
@@ -57,12 +59,12 @@ export default function ResetPasswordPage() {
                 required
                 minLength={8}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputCls}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-1">Confirm password</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Confirm password</label>
               <input
                 type="password"
                 value={confirm}
@@ -70,16 +72,16 @@ export default function ResetPasswordPage() {
                 required
                 minLength={8}
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={inputCls}
               />
             </div>
 
-            {error && <p className="text-red-400 text-sm">{error}</p>}
+            {error && <p className="text-red-600 text-sm">{error}</p>}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-semibold rounded-lg transition-colors"
+              className="w-full py-3 bg-[#1C7BC0] hover:bg-[#1C7BC0]/90 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
             >
               {loading ? 'Saving...' : 'Set new password'}
             </button>
