@@ -407,6 +407,7 @@ export default function PaymentsClient({ charges, leases }: {
   const [editCharge, setEditCharge] = useState<ChargeRow | null>(null)
   const [editPayment, setEditPayment] = useState<Payment | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [confirmDeleteChargeId, setConfirmDeleteChargeId] = useState<string | null>(null)
 
   const now = new Date()
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -436,6 +437,18 @@ export default function PaymentsClient({ charges, leases }: {
       console.error(err)
     } finally {
       setConfirmDeleteId(null)
+      router.refresh()
+    }
+  }
+
+  async function handleDeleteCharge(chargeId: string) {
+    try {
+      const res = await fetch(`/api/rent-charges/${chargeId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete')
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setConfirmDeleteChargeId(null)
       router.refresh()
     }
   }
@@ -522,16 +535,30 @@ export default function PaymentsClient({ charges, leases }: {
                         </td>
                         <td className="px-5 py-4"><StatusBadge status={chargeStatus(c)} /></td>
                         <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center justify-end gap-3">
-                            <button onClick={() => setEditCharge(c)}
-                              className="text-xs text-gray-400 font-medium hover:text-[#1A2B4A] flex items-center gap-1 transition-colors">
-                              <Pencil size={11} /> Edit
-                            </button>
-                            <button onClick={() => setRecordCharge(c)}
-                              className="text-xs text-[#1C7BC0] font-medium hover:underline whitespace-nowrap">
-                              Record Payment
-                            </button>
-                          </div>
+                          {confirmDeleteChargeId === c.id ? (
+                            <div className="flex items-center justify-end gap-3">
+                              <span className="text-xs text-red-600">Delete this charge?</span>
+                              <button onClick={() => handleDeleteCharge(c.id)}
+                                className="text-xs text-red-600 font-semibold hover:underline">Yes, delete</button>
+                              <button onClick={() => setConfirmDeleteChargeId(null)}
+                                className="text-xs text-gray-400 hover:underline">Cancel</button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-end gap-3">
+                              <button onClick={() => setEditCharge(c)}
+                                className="text-xs text-gray-400 font-medium hover:text-[#1A2B4A] flex items-center gap-1 transition-colors">
+                                <Pencil size={11} /> Edit
+                              </button>
+                              <button onClick={() => setConfirmDeleteChargeId(c.id)}
+                                className="text-xs text-red-400 font-medium hover:underline flex items-center gap-1">
+                                <Trash2 size={11} /> Delete
+                              </button>
+                              <button onClick={() => setRecordCharge(c)}
+                                className="text-xs text-[#1C7BC0] font-medium hover:underline whitespace-nowrap">
+                                Record Payment
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
 
