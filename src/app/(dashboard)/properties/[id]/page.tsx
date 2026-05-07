@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
+import PropertyFinancialsCard from './PropertyFinancialsCard'
 
 function getPropertyTypeLabel(type: string) {
   const labels: Record<string, string> = {
@@ -96,6 +97,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       sewer_provider, sewer_paid_by, sewer_account,
       trash_provider, trash_paid_by, trash_account,
       hoa_fee, hoa_covers,
+      estimated_value, purchase_price, cash_invested, last_value_update,
       units (
         id,
         unit_number,
@@ -250,6 +252,14 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           )}
         </div>
       )}
+
+      <PropertyFinancialsCard
+        propertyId={property.id}
+        estimatedValue={(property as any).estimated_value ?? null}
+        purchasePrice={(property as any).purchase_price ?? null}
+        cashInvested={(property as any).cash_invested ?? null}
+        lastValueUpdate={(property as any).last_value_update ?? null}
+      />
 
       <h2 className="text-[#1A2B4A] font-semibold text-lg mb-4">Units</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">

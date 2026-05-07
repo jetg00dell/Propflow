@@ -1,32 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-
-function parseLocalDate(d: string) {
-  const [y, m, day] = d.split('-').map(Number)
-  return new Date(y, m - 1, day)
-}
-
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—'
-  return parseLocalDate(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function daysUntil(dateStr: string | null) {
-  if (!dateStr) return null
-  return Math.ceil((parseLocalDate(dateStr).getTime() - Date.now()) / 86400000)
-}
-
-function LeaseEndValue({ endDate }: { endDate: string | null }) {
-  const days = daysUntil(endDate)
-  const text = formatDate(endDate)
-  if (days === null) return <span className="text-gray-700 text-sm">{text}</span>
-  if (days < 0)
-    return <span className="text-red-600 text-sm">{text} <span className="text-xs font-normal">(expired)</span></span>
-  if (days <= 90)
-    return <span className="text-amber-500 text-sm">{text} <span className="text-xs font-normal">({days}d left)</span></span>
-  return <span className="text-gray-700 text-sm">{text}</span>
-}
+import LeaseTermsCard from './LeaseTermsCard'
 
 function StatusBadge({ status }: { status: string | null }) {
   if (status === 'active')
@@ -46,7 +21,7 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
 
   const { data: lease, error: leaseError } = await admin
     .from('leases')
-    .select('id, unit_id, status, start_date, end_date, monthly_rent, security_deposit, pet_deposit, late_fee_flat, grace_period_days, rent_due_day, auto_renew, renewal_notice_days')
+    .select('id, unit_id, status, start_date, end_date, monthly_rent, security_deposit, pet_rent, pet_deposit, late_fee_flat, grace_period_days, rent_due_day, auto_renew, renewal_notice_days')
     .eq('id', id)
     .single()
 
@@ -115,65 +90,20 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <h2 className="text-[#1A2B4A] font-semibold text-base mb-4">Lease Terms</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Monthly Rent</p>
-                <p className="text-[#1A2B4A] font-semibold">
-                  {lease.monthly_rent != null ? `$${(lease.monthly_rent as number).toLocaleString()}` : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Security Deposit</p>
-                <p className="text-[#1A2B4A] font-semibold">
-                  {lease.security_deposit != null ? `$${(lease.security_deposit as number).toLocaleString()}` : '—'}
-                </p>
-              </div>
-              {(lease.pet_deposit as number | null) != null && (lease.pet_deposit as number) > 0 && (
-                <div>
-                  <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Pet Deposit</p>
-                  <p className="text-[#1A2B4A] font-semibold">${(lease.pet_deposit as number).toLocaleString()}</p>
-                </div>
-              )}
-              {(lease.late_fee_flat as number | null) != null && (lease.late_fee_flat as number) > 0 && (
-                <div>
-                  <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Late Fee</p>
-                  <p className="text-[#1A2B4A] font-semibold">${(lease.late_fee_flat as number).toLocaleString()}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Start Date</p>
-                <p className="text-gray-700 text-sm">{formatDate(lease.start_date as string | null)}</p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">End Date</p>
-                <LeaseEndValue endDate={lease.end_date as string | null} />
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Rent Due Day</p>
-                <p className="text-gray-700 text-sm">
-                  {lease.rent_due_day != null ? `Day ${lease.rent_due_day}` : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Grace Period</p>
-                <p className="text-gray-700 text-sm">
-                  {lease.grace_period_days != null ? `${lease.grace_period_days} days` : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Auto-Renew</p>
-                <p className="text-gray-700 text-sm">{lease.auto_renew ? 'Yes' : 'No'}</p>
-              </div>
-              {lease.renewal_notice_days != null && (
-                <div>
-                  <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Renewal Notice</p>
-                  <p className="text-gray-700 text-sm">{lease.renewal_notice_days as number} days</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <LeaseTermsCard
+            leaseId={lease.id}
+            monthlyRent={(lease.monthly_rent as number | null) ?? null}
+            securityDeposit={(lease.security_deposit as number | null) ?? null}
+            petRent={(lease.pet_rent as number | null) ?? null}
+            petDeposit={(lease.pet_deposit as number | null) ?? null}
+            lateFeeFlat={(lease.late_fee_flat as number | null) ?? null}
+            gracePeriodDays={(lease.grace_period_days as number | null) ?? null}
+            rentDueDay={(lease.rent_due_day as number | null) ?? null}
+            autoRenew={(lease.auto_renew as boolean | null) ?? null}
+            renewalNoticeDays={(lease.renewal_notice_days as number | null) ?? null}
+            startDate={(lease.start_date as string | null) ?? null}
+            endDate={(lease.end_date as string | null) ?? null}
+          />
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 h-fit">
