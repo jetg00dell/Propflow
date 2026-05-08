@@ -60,8 +60,9 @@ type ExpiringLease = {
   property_name: string | null
 }
 
-export default function DashboardHome({ units, recentPayments, maintenanceItems, expiringLeases }: {
+export default function DashboardHome({ units, activeLeases, recentPayments, maintenanceItems, expiringLeases }: {
   units: any[];
+  activeLeases: any[];
   recentPayments: any[];
   maintenanceItems: any[];
   expiringLeases: ExpiringLease[];
@@ -69,9 +70,7 @@ export default function DashboardHome({ units, recentPayments, maintenanceItems,
   const totalUnits = units.length;
   const occupiedUnits = units.filter(u => u.status === "occupied").length;
   const occupancyRate = totalUnits > 0 ? ((occupiedUnits / totalUnits) * 100).toFixed(1) : "0";
-  const monthlyRevenue = units
-    .filter(u => u.status === "occupied")
-    .reduce((sum, u) => sum + (u.market_rent ?? 0), 0);
+  const monthlyRevenue = activeLeases.reduce((sum, l) => sum + (l.monthly_rent ?? 0), 0);
   const openMaintenance = maintenanceItems.length;
   const expiringCount = expiringLeases.length;
 

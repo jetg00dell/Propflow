@@ -44,5 +44,12 @@ export default async function MaintenancePage() {
     }
   })
 
-  return <MaintenanceClient requests={enriched} />
+  return (
+    <MaintenanceClient
+      requests={enriched}
+      properties={(properties ?? []).map((p: any) => ({ id: p.id, name: p.name }))}
+      units={(units ?? []).map((u: any) => ({ id: u.id, unit_number: u.unit_number, property_id: u.property_id }))}
+      tenants={(tenants ?? []).map((t: any) => ({ id: t.id, first_name: t.first_name, last_name: t.last_name, email: t.email }))}
+    />
+  )
 }

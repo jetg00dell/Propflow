@@ -205,6 +205,7 @@ export default function TenantsClient({ tenants, stats }: { tenants: TenantRow[]
                       )}
                     </div>
                     {t.email && <p className="text-gray-500 text-xs mt-0.5">{t.email}</p>}
+                    {t.phone && <p className="text-gray-500 text-xs">{t.phone}</p>}
                   </td>
                   <td className="px-5 py-3">
                     {t.property_name ? (

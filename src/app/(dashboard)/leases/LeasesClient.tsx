@@ -8,6 +8,7 @@ type LeaseTenant = {
   id: string
   first_name: string
   last_name: string
+  phone: string | null
   is_primary: boolean
 }
 
@@ -213,16 +214,19 @@ export default function LeasesClient({ leases, stats }: { leases: LeaseRow[]; st
                     {l.tenants.length > 0 ? (
                       <div className="space-y-0.5">
                         {l.tenants.map(t => (
-                          <div key={t.id} className="flex items-center gap-1.5">
-                            <Link
-                              href={`/tenants/${t.id}`}
-                              className="text-gray-600 text-sm hover:text-[#1C7BC0] transition-colors"
-                            >
-                              {t.first_name} {t.last_name}
-                            </Link>
-                            {!t.is_primary && (
-                              <span className="text-gray-500 text-xs border border-gray-200 rounded px-1 py-0.5 leading-none">Co</span>
-                            )}
+                          <div key={t.id}>
+                            <div className="flex items-center gap-1.5">
+                              <Link
+                                href={`/tenants/${t.id}`}
+                                className="text-gray-600 text-sm hover:text-[#1C7BC0] transition-colors"
+                              >
+                                {t.first_name} {t.last_name}
+                              </Link>
+                              {!t.is_primary && (
+                                <span className="text-gray-500 text-xs border border-gray-200 rounded px-1 py-0.5 leading-none">Co</span>
+                              )}
+                            </div>
+                            {t.phone && <p className="text-gray-400 text-xs">{t.phone}</p>}
                           </div>
                         ))}
                       </div>

@@ -97,6 +97,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       sewer_provider, sewer_paid_by, sewer_account,
       trash_provider, trash_paid_by, trash_account,
       hoa_fee, hoa_covers,
+      insurance_premium, insurance_expiry,
       estimated_value, purchase_price, cash_invested, last_value_update,
       units (
         id,
@@ -232,7 +233,8 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         property.water_provider || property.water_paid_by ||
         property.sewer_provider || property.sewer_paid_by ||
         property.trash_provider || property.trash_paid_by ||
-        property.hoa_fee != null) && (
+        property.hoa_fee != null ||
+        property.insurance_expiry != null) && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
           <h2 className="text-[#1A2B4A] font-semibold text-base mb-3">Utilities</h2>
           <UtilityRow label="Electric" provider={property.electric_provider} paidBy={property.electric_paid_by} account={property.electric_account} />
@@ -240,16 +242,24 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
           <UtilityRow label="Water" provider={property.water_provider} paidBy={property.water_paid_by} account={property.water_account} />
           <UtilityRow label="Sewer" provider={property.sewer_provider} paidBy={property.sewer_paid_by} account={property.sewer_account} />
           <UtilityRow label="Trash" provider={property.trash_provider} paidBy={property.trash_paid_by} account={property.trash_account} />
-          {property.hoa_fee != null && (
-            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-6">
-              <div>
-                <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">HOA Fee</p>
-                <p className="text-[#1A2B4A] font-semibold">${(property.hoa_fee as number).toLocaleString()}/mo</p>
-              </div>
+          {(property.hoa_fee != null || property.insurance_expiry != null) && (
+            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-6 flex-wrap">
+              {property.hoa_fee != null && (
+                <div>
+                  <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">HOA Fee</p>
+                  <p className="text-[#1A2B4A] font-semibold">${(property.hoa_fee as number).toLocaleString()}/mo</p>
+                </div>
+              )}
               {property.hoa_covers && (
                 <div>
                   <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Covers</p>
                   <p className="text-gray-700 text-sm">{property.hoa_covers as string}</p>
+                </div>
+              )}
+              {property.insurance_expiry != null && (
+                <div>
+                  <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Insurance Expires</p>
+                  <p className="text-[#1A2B4A] font-semibold">{formatDate(property.insurance_expiry as string)}</p>
                 </div>
               )}
             </div>

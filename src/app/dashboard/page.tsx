@@ -18,11 +18,13 @@ export default async function DashboardPage() {
     { data: payments },
     { data: maintenance },
     { data: leases },
+    { data: activeLeases },
   ] = await Promise.all([
-    admin.from('units').select('id, status, market_rent'),
+    admin.from('units').select('id, status'),
     admin.from('payments').select('id, amount, status, paid_date, due_date, type').order('created_at', { ascending: false }).limit(5),
     admin.from('maintenance_requests').select('id, title, urgency, status, created_at, category').eq('status', 'open').order('created_at', { ascending: false }).limit(4),
     admin.from('leases').select('id, end_date, unit_id').gte('end_date', now.toISOString()).lte('end_date', in90.toISOString()).order('end_date', { ascending: true }),
+    admin.from('leases').select('id, monthly_rent').eq('status', 'active'),
   ])
 
   // Resolve unit + property names for expiring leases
@@ -54,6 +56,7 @@ export default async function DashboardPage() {
     <Dashboard>
       <DashboardHome
         units={units ?? []}
+        activeLeases={activeLeases ?? []}
         recentPayments={payments ?? []}
         maintenanceItems={maintenance ?? []}
         expiringLeases={enrichedLeases}

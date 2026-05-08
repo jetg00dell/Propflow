@@ -1,6 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { Plus } from 'lucide-react'
+
+type Property = { id: string; name: string }
+type Unit = { id: string; unit_number: string; property_id: string }
+type TenantOption = { id: string; first_name: string; last_name: string; email: string }
 
 type Request = {
   id: string
@@ -33,12 +38,155 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export default function MaintenanceClient({ requests: initial }: { requests: Request[] }) {
+const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30'
+
+function NewRequestModal({ properties, units, tenants, onClose, onSaved }: {
+  properties: Property[]
+  units: Unit[]
+  tenants: TenantOption[]
+  onClose: () => void
+  onSaved: (req: Request) => void
+}) {
+  const [propertyId, setPropertyId] = useState(properties[0]?.id ?? '')
+  const [unitId, setUnitId] = useState('')
+  const [tenantId, setTenantId] = useState('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [urgency, setUrgency] = useState<'low' | 'medium' | 'high' | 'emergency'>('medium')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const filteredUnits = units.filter(u => u.property_id === propertyId)
+  const selectedProperty = properties.find(p => p.id === propertyId)
+  const selectedUnit = units.find(u => u.id === unitId)
+  const selectedTenant = tenants.find(t => t.id === tenantId)
+
+  function handlePropertyChange(id: string) {
+    setPropertyId(id)
+    setUnitId('')
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!unitId) { setError('Please select a unit.'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          unit_id: unitId,
+          tenant_id: tenantId || null,
+          title,
+          description,
+          urgency,
+          property_name: selectedProperty?.name ?? '—',
+          unit_number: selectedUnit?.unit_number ?? '—',
+          tenant_name: selectedTenant ? `${selectedTenant.first_name} ${selectedTenant.last_name}` : 'Not specified',
+          tenant_email: selectedTenant?.email ?? null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to submit')
+      onSaved({
+        ...data.request,
+        property_name: selectedProperty?.name ?? '—',
+        unit_number: selectedUnit?.unit_number ?? '—',
+        tenant_name: selectedTenant ? `${selectedTenant.first_name} ${selectedTenant.last_name}` : 'Not specified',
+        tenant_email: selectedTenant?.email ?? null,
+      })
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <h2 className="text-base font-semibold text-[#1A2B4A] mb-5">New Maintenance Request</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Property</label>
+            <select value={propertyId} onChange={e => handlePropertyChange(e.target.value)} className={inputCls} required>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Unit</label>
+            <select value={unitId} onChange={e => setUnitId(e.target.value)} className={inputCls} required>
+              <option value="">Select a unit…</option>
+              {filteredUnits.map(u => <option key={u.id} value={u.id}>Unit {u.unit_number}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">
+              Tenant <span className="text-gray-300 font-normal">(optional)</span>
+            </label>
+            <select value={tenantId} onChange={e => setTenantId(e.target.value)} className={inputCls}>
+              <option value="">No tenant linked</option>
+              {tenants.map(t => <option key={t.id} value={t.id}>{t.first_name} {t.last_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Title</label>
+            <input type="text" value={title} onChange={e => setTitle(e.target.value)} className={inputCls} placeholder="e.g. Leaking kitchen faucet" required />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Description</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className={`${inputCls} resize-none`} placeholder="Describe the issue in detail…" required />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">Urgency</label>
+            <div className="grid grid-cols-4 gap-2">
+              {(['low', 'medium', 'high', 'emergency'] as const).map(u => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setUrgency(u)}
+                  className={`py-2 rounded-lg text-xs font-medium border transition-colors capitalize ${
+                    urgency === u
+                      ? u === 'emergency' ? 'bg-red-600 text-white border-red-600'
+                        : u === 'high' ? 'bg-orange-500 text-white border-orange-500'
+                        : u === 'medium' ? 'bg-[#1C7BC0] text-white border-[#1C7BC0]'
+                        : 'bg-gray-500 text-white border-gray-500'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="flex-1 py-2 rounded-lg bg-[#1C7BC0] text-white text-sm font-medium hover:bg-[#1C7BC0]/90 disabled:opacity-50 transition-colors">
+              {saving ? 'Submitting…' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+export default function MaintenanceClient({ requests: initial, properties, units, tenants }: {
+  requests: Request[]
+  properties: Property[]
+  units: Unit[]
+  tenants: TenantOption[]
+}) {
   const [requests, setRequests] = useState(initial)
   const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [addOpen, setAddOpen] = useState(false)
 
   const filtered = filter === 'all' ? requests : requests.filter((r) => r.status === filter)
 
@@ -73,10 +221,32 @@ export default function MaintenanceClient({ requests: initial }: { requests: Req
 
   return (
     <div className="min-h-screen bg-[#F5F6FA]">
+      {addOpen && (
+        <NewRequestModal
+          properties={properties}
+          units={units}
+          tenants={tenants}
+          onClose={() => setAddOpen(false)}
+          onSaved={(req) => {
+            setRequests((prev) => [req, ...prev])
+            setAddOpen(false)
+          }}
+        />
+      )}
+
       <div className="max-w-5xl mx-auto px-6 py-10">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-[#1A2B4A]">Maintenance</h1>
-          <p className="text-sm text-gray-500 mt-1">All requests across your portfolio</p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold text-[#1A2B4A]">Maintenance</h1>
+            <p className="text-sm text-gray-500 mt-1">All requests across your portfolio</p>
+          </div>
+          <button
+            onClick={() => setAddOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#1C7BC0] text-white text-sm font-medium rounded-lg hover:bg-[#1669A8] transition-colors"
+          >
+            <Plus size={16} />
+            New Request
+          </button>
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-6">

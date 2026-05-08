@@ -45,7 +45,7 @@ export default async function LeasesPage() {
 
   // Step 5: tenants
   const { data: tenants } = tenantIds.length > 0
-    ? await admin.from('tenants').select('id, first_name, last_name').in('id', tenantIds)
+    ? await admin.from('tenants').select('id, first_name, last_name, phone').in('id', tenantIds)
     : { data: [] }
 
   // Build lookup maps

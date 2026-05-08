@@ -42,8 +42,17 @@ function pct(n: number | null, decimals = 1): string {
   return `${n.toFixed(decimals)}%`
 }
 
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  single_family: 'Single Family',
+  multi_family: 'Multi Family',
+  condo: 'Condo',
+  townhouse: 'Townhouse',
+  commercial: 'Commercial',
+  sfh_adu: 'SFH + ADU',
+}
+
 function formatPropertyType(t: string): string {
-  return t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  return PROPERTY_TYPE_LABELS[t] ?? t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
 function cashFlowClass(n: number): string {
