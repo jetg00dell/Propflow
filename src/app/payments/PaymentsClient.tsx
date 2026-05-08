@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, XCircle, Plus, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -460,6 +460,7 @@ export default function PaymentsClient({ charges, leases }: {
 }) {
   const router = useRouter()
   const [expandedChargeId, setExpandedChargeId] = useState<string | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState('')
   const [addChargeOpen, setAddChargeOpen] = useState(false)
   const [recordCharge, setRecordCharge] = useState<ChargeRow | null>(null)
   const [editCharge, setEditCharge] = useState<ChargeRow | null>(null)
@@ -469,13 +470,30 @@ export default function PaymentsClient({ charges, leases }: {
 
   const now = new Date()
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const currentMonthCharges = charges.filter(c => c.charge_month.startsWith(currentMonthPrefix))
 
-  const haCollected = currentMonthCharges.reduce(
+  // Sorted unique months derived from all charges (most recent first)
+  const availableMonths = useMemo(() => {
+    const months = [...new Set(charges.map(c => c.charge_month.slice(0, 7)))]
+    return months.sort((a, b) => b.localeCompare(a))
+  }, [charges])
+
+  // Table rows respect the filter; "All" shows everything
+  const filteredCharges = selectedMonth
+    ? charges.filter(c => c.charge_month.startsWith(selectedMonth))
+    : charges
+
+  // Stats always reflect the selected month, defaulting to current month when "All"
+  const statsMonthPrefix = selectedMonth || currentMonthPrefix
+  const statsCharges = charges.filter(c => c.charge_month.startsWith(statsMonthPrefix))
+  const statsLabel = selectedMonth
+    ? formatMonth(`${selectedMonth}-01`)
+    : 'this month'
+
+  const haCollected = statsCharges.reduce(
     (s, c) => s + c.payments.filter(p => p.paid_by === 'ha').reduce((a, p) => a + p.amount, 0), 0)
-  const tenantCollected = currentMonthCharges.reduce(
+  const tenantCollected = statsCharges.reduce(
     (s, c) => s + c.payments.filter(p => p.paid_by === 'tenant').reduce((a, p) => a + p.amount, 0), 0)
-  const totalExpected = currentMonthCharges.reduce((s, c) => s + c.total_due, 0)
+  const totalExpected = statsCharges.reduce((s, c) => s + c.total_due, 0)
   const totalCollected = haCollected + tenantCollected
   const outstanding = Math.max(0, totalExpected - totalCollected)
 
@@ -512,7 +530,7 @@ export default function PaymentsClient({ charges, leases }: {
   }
 
   const stats = [
-    { label: 'Expected (this month)', value: fmt(totalExpected), accent: false },
+    { label: `Expected (${statsLabel})`, value: fmt(totalExpected), accent: false },
     { label: 'Total Collected', value: fmt(totalCollected), accent: false },
     { label: 'HA Collected', value: fmt(haCollected), accent: false },
     { label: 'Tenant Collected', value: fmt(tenantCollected), accent: false },
@@ -523,10 +541,22 @@ export default function PaymentsClient({ charges, leases }: {
     <div className="min-h-screen bg-[#F5F6FA] p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-[#1A2B4A]">Payments</h1>
-        <button onClick={() => setAddChargeOpen(true)}
-          className="flex items-center gap-2 bg-[#1C7BC0] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1C7BC0]/90 transition-colors">
-          <Plus size={15} /> Add Charge
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+          >
+            <option value="">All months</option>
+            {availableMonths.map(m => (
+              <option key={m} value={m}>{formatMonth(`${m}-01`)}</option>
+            ))}
+          </select>
+          <button onClick={() => setAddChargeOpen(true)}
+            className="flex items-center gap-2 bg-[#1C7BC0] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1C7BC0]/90 transition-colors">
+            <Plus size={15} /> Add Charge
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-5 gap-4 mb-6">
@@ -554,12 +584,14 @@ export default function PaymentsClient({ charges, leases }: {
               </tr>
             </thead>
             <tbody>
-              {charges.length === 0 ? (
+              {filteredCharges.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center text-gray-400 text-sm py-12">No rent charges found</td>
+                  <td colSpan={8} className="text-center text-gray-400 text-sm py-12">
+                    {selectedMonth ? `No charges for ${formatMonth(`${selectedMonth}-01`)}` : 'No rent charges found'}
+                  </td>
                 </tr>
               ) : (
-                charges.map(c => {
+                filteredCharges.map(c => {
                   const haPaid = c.payments.filter(p => p.paid_by === 'ha').reduce((s, p) => s + p.amount, 0)
                   const tenantPaid = c.payments.filter(p => p.paid_by === 'tenant').reduce((s, p) => s + p.amount, 0)
                   const totalPaid = haPaid + tenantPaid
