@@ -15,6 +15,7 @@ type PropertyFinancial = {
   mortgagePayment: number
   mortgageBalance: number
   mortgageRate: number
+  mortgageLender: string | null
   propertyTax: number
   insurance: number
   hoaFee: number
@@ -218,6 +219,12 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                       <div>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Mortgage</p>
                         <div className="space-y-1.5">
+                          {p.mortgageLender && (
+                            <div className="flex justify-between">
+                              <span className="text-xs text-gray-500">Lender</span>
+                              <span className="text-xs font-medium text-[#1A2B4A]">{p.mortgageLender}</span>
+                            </div>
+                          )}
                           <div className="flex justify-between">
                             <span className="text-xs text-gray-500">Payment</span>
                             <span className="text-xs font-medium text-[#1A2B4A]">{formatCurrency(p.mortgagePayment)}/mo</span>

@@ -20,7 +20,7 @@ export default async function FinancialsPage() {
   // 1. All properties
   const { data: properties } = await admin
     .from('properties')
-    .select('id, name, property_type, status, address, city, state, mortgage_payment, mortgage_balance, mortgage_rate, mortgage_balance_date, insurance_policy, insurance_expiry, hoa_fee, property_tax, insurance_premium')
+    .select('id, name, property_type, status, address, city, state, mortgage_payment, mortgage_balance, mortgage_rate, mortgage_lender, mortgage_balance_date, insurance_policy, insurance_expiry, hoa_fee, property_tax, insurance_premium')
     .order('name')
 
   // 2. All units
@@ -106,6 +106,7 @@ export default async function FinancialsPage() {
       mortgageBalance,
       mortgageBalanceConfirmedDate,
       mortgageRate,
+      mortgageLender: p.mortgage_lender ?? null,
       propertyTax,
       insurance,
       hoaFee,
