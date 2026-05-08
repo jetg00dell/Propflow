@@ -13,7 +13,7 @@ export default async function PaymentsPage() {
   // Step 1: active leases
   const { data: leases } = await admin
     .from('leases')
-    .select('id, unit_id')
+    .select('id, unit_id, ha_amount, tenant_amount, monthly_rent')
     .eq('status', 'active')
 
   const leaseIds = (leases ?? []).map((l: any) => l.id)
@@ -109,6 +109,9 @@ export default async function PaymentsPage() {
       property_name: (property?.name ?? null) as string | null,
       unit_number: (unit?.unit_number ?? null) as string | null,
       tenant_name: tenant ? `${tenant.first_name} ${tenant.last_name}` : null as string | null,
+      ha_amount: (l.ha_amount ?? null) as number | null,
+      tenant_amount: (l.tenant_amount ?? null) as number | null,
+      monthly_rent: (l.monthly_rent ?? null) as number | null,
     }
   })
 

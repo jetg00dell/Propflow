@@ -33,6 +33,9 @@ type ActiveLease = {
   property_name: string | null
   unit_number: string | null
   tenant_name: string | null
+  ha_amount: number | null
+  tenant_amount: number | null
+  monthly_rent: number | null
 }
 
 function fmt(n: number) {
@@ -312,17 +315,49 @@ function EditPaymentModal({ payment, onClose, onSaved }: {
   )
 }
 
+function defaultAmounts(lease: ActiveLease): { ha: string; tenant: string } {
+  return {
+    ha: lease.ha_amount != null ? String(lease.ha_amount) : '0',
+    tenant: lease.tenant_amount != null
+      ? String(lease.tenant_amount)
+      : lease.monthly_rent != null
+      ? String(lease.monthly_rent)
+      : '',
+  }
+}
+
 function AddChargeModal({ leases, onClose, onSaved }: {
   leases: ActiveLease[]; onClose: () => void; onSaved: () => void
 }) {
   const now = new Date()
   const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const [leaseId, setLeaseId] = useState(leases[0]?.id ?? '')
+
+  const initialLease = leases[0] ?? null
+  const initialAmounts = initialLease ? defaultAmounts(initialLease) : { ha: '', tenant: '' }
+
+  const [leaseId, setLeaseId] = useState(initialLease?.id ?? '')
   const [chargeMonth, setChargeMonth] = useState(currentMonthStr)
-  const [haAmount, setHaAmount] = useState('')
-  const [tenantAmount, setTenantAmount] = useState('')
+  const [haAmount, setHaAmount] = useState(initialAmounts.ha)
+  const [tenantAmount, setTenantAmount] = useState(initialAmounts.tenant)
+  const [adjustment, setAdjustment] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function handleLeaseChange(id: string) {
+    setLeaseId(id)
+    const lease = leases.find(l => l.id === id)
+    if (lease) {
+      const { ha, tenant } = defaultAmounts(lease)
+      setHaAmount(ha)
+      setTenantAmount(tenant)
+    }
+  }
+
+  const ha = parseFloat(haAmount) || 0
+  const tenant = parseFloat(tenantAmount) || 0
+  const adj = parseFloat(adjustment) || 0
+  const totalDue = ha + tenant + adj
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -330,14 +365,13 @@ function AddChargeModal({ leases, onClose, onSaved }: {
     setError(null)
     try {
       const supabase = createClient()
-      const ha = parseFloat(haAmount) || 0
-      const tenant = parseFloat(tenantAmount) || 0
       const { error: err } = await supabase.from('rent_charges').insert({
         lease_id: leaseId,
         charge_month: `${chargeMonth}-01`,
         ha_amount: ha,
         tenant_amount: tenant,
-        total_due: ha + tenant,
+        total_due: totalDue,
+        notes: notes || null,
       })
       if (err) throw new Error(err.message)
       onSaved()
@@ -355,7 +389,7 @@ function AddChargeModal({ leases, onClose, onSaved }: {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">Lease</label>
-            <select value={leaseId} onChange={e => setLeaseId(e.target.value)} className={inputCls} required>
+            <select value={leaseId} onChange={e => handleLeaseChange(e.target.value)} className={inputCls} required>
               {leases.map(l => (
                 <option key={l.id} value={l.id}>
                   {l.property_name} — Unit {l.unit_number}{l.tenant_name ? ` (${l.tenant_name})` : ''}
@@ -376,6 +410,30 @@ function AddChargeModal({ leases, onClose, onSaved }: {
               <label className="text-xs font-medium text-gray-500 block mb-1">Tenant Amount</label>
               <input type="number" min="0" step="0.01" value={tenantAmount} onChange={e => setTenantAmount(e.target.value)} className={inputCls} placeholder="0.00" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">
+              Adjustment
+              <span className="ml-1 text-gray-300 font-normal">(late fee, shortage, credit — can be negative)</span>
+            </label>
+            <input type="number" step="0.01" value={adjustment} onChange={e => setAdjustment(e.target.value)} className={inputCls} placeholder="0.00" />
+          </div>
+          <div className="flex justify-between items-center px-3 py-2 bg-[#F0F7FF] rounded-lg border border-[#1C7BC0]/20">
+            <span className="text-xs font-medium text-gray-500">Total Due</span>
+            <span className="text-sm font-semibold text-[#1A2B4A]">{fmt(totalDue)}</span>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">
+              Notes
+              <span className="ml-1 text-gray-300 font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={2}
+              className={`${inputCls} resize-none`}
+              placeholder="e.g. Late fee added, shortage from March carried over…"
+            />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-3 pt-1">
