@@ -25,6 +25,7 @@ type PropertyFinancial = {
   activeLeaseCount: number
   nearestLeaseEnd: string | null
   mortgageBalanceConfirmedDate: string | null
+  estimatedValue: number | null
 }
 
 type Portfolio = {
@@ -32,6 +33,8 @@ type Portfolio = {
   totalExpenses: number
   totalMortgageBalance: number
   netCashFlow: number
+  portfolioValue: number | null
+  totalEquity: number | null
 }
 
 type Props = {
@@ -46,8 +49,10 @@ function formatCurrency(n: number): string {
 }
 
 function formatLargeBalance(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
+  const abs = Math.abs(n)
+  const sign = n < 0 ? '-' : ''
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`
   return formatCurrency(n)
 }
 
@@ -127,7 +132,7 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
         </div>
 
         {/* Portfolio summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total income</p>
             <p className="text-xl font-semibold text-[#1C7BC0]">{formatCurrency(portfolio.totalIncome)}</p>
@@ -149,6 +154,23 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Mortgage balance</p>
             <p className="text-xl font-semibold text-[#1A2B4A]">{formatLargeBalance(portfolio.totalMortgageBalance)}</p>
             <p className="text-xs text-gray-400 mt-0.5">total outstanding</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Portfolio value</p>
+            <p className="text-xl font-semibold text-[#1A2B4A]">
+              {portfolio.portfolioValue != null ? formatLargeBalance(portfolio.portfolioValue) : '—'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">estimated</p>
+          </div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total equity</p>
+            <p className={`text-xl font-semibold ${
+              portfolio.totalEquity == null ? 'text-[#1A2B4A]' :
+              portfolio.totalEquity >= 0 ? 'text-[#1C7BC0]' : 'text-[#DC2626]'
+            }`}>
+              {portfolio.totalEquity != null ? formatLargeBalance(portfolio.totalEquity) : '—'}
+            </p>
+            <p className="text-xs text-gray-400 mt-0.5">value minus mortgage</p>
           </div>
         </div>
 

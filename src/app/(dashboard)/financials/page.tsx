@@ -20,7 +20,7 @@ export default async function FinancialsPage() {
   // 1. All properties
   const { data: properties } = await admin
     .from('properties')
-    .select('id, name, property_type, status, address, city, state, mortgage_payment, mortgage_balance, mortgage_rate, mortgage_lender, mortgage_balance_date, hoa_fee, property_tax, insurance_premium')
+    .select('id, name, property_type, status, address, city, state, mortgage_payment, mortgage_balance, mortgage_rate, mortgage_lender, mortgage_balance_date, hoa_fee, property_tax, insurance_premium, estimated_value')
     .order('name')
 
   // 2. All units
@@ -115,14 +115,23 @@ export default async function FinancialsPage() {
       totalUnits,
       activeLeaseCount,
       nearestLeaseEnd: nearestLeaseEnd ? nearestLeaseEnd.toISOString() : null,
+      estimatedValue: (p.estimated_value as number | null) ?? null,
     }
   })
+
+  const totalMortgageBalance = propertyFinancials.reduce((s, p) => s + p.mortgageBalance, 0)
+  const hasEstimatedValue = propertyFinancials.some((p) => p.estimatedValue != null)
+  const portfolioValue = hasEstimatedValue
+    ? propertyFinancials.reduce((s, p) => s + (p.estimatedValue ?? 0), 0)
+    : null
 
   const portfolio = {
     totalIncome: propertyFinancials.reduce((s, p) => s + p.monthlyIncome, 0),
     totalExpenses: propertyFinancials.reduce((s, p) => s + p.totalExpenses, 0),
-    totalMortgageBalance: propertyFinancials.reduce((s, p) => s + p.mortgageBalance, 0),
+    totalMortgageBalance,
     netCashFlow: propertyFinancials.reduce((s, p) => s + p.noi, 0),
+    portfolioValue,
+    totalEquity: portfolioValue != null ? portfolioValue - totalMortgageBalance : null,
   }
 
   return <FinancialsClient properties={propertyFinancials} portfolio={portfolio} />
