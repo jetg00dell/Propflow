@@ -51,10 +51,7 @@ export default async function ReportsPage() {
 
     const grossMonthlyIncome = propLeases.reduce((s, l) => s + (l.monthly_rent ?? 0), 0)
     const mortgagePayment = p.mortgage_payment ?? 0
-    const operatingExpenses =
-      (p.insurance_premium ?? 0) / 12 +
-      (p.property_tax ?? 0) / 12 +
-      (p.hoa_fee ?? 0)
+    const operatingExpenses = p.hoa_fee ?? 0  // property_tax and insurance_premium are reference only
     const totalExpenses = mortgagePayment + operatingExpenses
 
     const noi = grossMonthlyIncome - operatingExpenses

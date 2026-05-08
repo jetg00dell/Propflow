@@ -79,11 +79,11 @@ export default async function FinancialsPage() {
       mortgagePayment,
       mortgageBalanceConfirmedDate
     )
-    const propertyTax = (p.property_tax ?? 0) / 12
-    const insurance = (p.insurance_premium ?? 0) / 12
+    const propertyTax = (p.property_tax ?? 0) / 12   // reference only
+    const insurance = (p.insurance_premium ?? 0) / 12  // reference only
     const hoaFee = p.hoa_fee ?? 0
 
-    const totalExpenses = mortgagePayment + propertyTax + insurance + hoaFee
+    const totalExpenses = mortgagePayment + hoaFee
     const noi = monthlyIncome - totalExpenses
 
     const leaseDates = propLeases
