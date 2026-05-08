@@ -10,56 +10,72 @@ export default async function PaymentsPage() {
 
   const admin = createAdminClient()
 
-  // Step 1: active leases
-  const { data: leases } = await admin
+  // Step 1: active leases — select only columns that exist on the leases table.
+  // ha_amount/tenant_amount live on rent_charges, not leases; monthly_rent is the
+  // lease-level default used for AddChargeModal auto-populate.
+  const { data: leases, error: leasesError } = await admin
     .from('leases')
-    .select('id, unit_id, ha_amount, tenant_amount, monthly_rent')
+    .select('id, unit_id, monthly_rent')
     .eq('status', 'active')
+
+  if (leasesError) console.error('[payments] leases query error:', leasesError)
 
   const leaseIds = (leases ?? []).map((l: any) => l.id)
   const unitIds = [...new Set((leases ?? []).map((l: any) => l.unit_id).filter(Boolean))]
 
   // Step 2: units
-  const { data: units } = unitIds.length > 0
+  const { data: units, error: unitsError } = unitIds.length > 0
     ? await admin.from('units').select('id, unit_number, property_id').in('id', unitIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (unitsError) console.error('[payments] units query error:', unitsError)
 
   const propertyIds = [...new Set((units ?? []).map((u: any) => u.property_id).filter(Boolean))]
 
   // Step 3: properties
-  const { data: properties } = propertyIds.length > 0
+  const { data: properties, error: propertiesError } = propertyIds.length > 0
     ? await admin.from('properties').select('id, name').in('id', propertyIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (propertiesError) console.error('[payments] properties query error:', propertiesError)
 
   // Step 4: primary tenants
-  const { data: leaseTenants } = leaseIds.length > 0
+  const { data: leaseTenants, error: leaseTenantsError } = leaseIds.length > 0
     ? await admin.from('lease_tenants').select('lease_id, tenant_id, is_primary').in('lease_id', leaseIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (leaseTenantsError) console.error('[payments] lease_tenants query error:', leaseTenantsError)
 
   const tenantIds = [...new Set((leaseTenants ?? []).map((lt: any) => lt.tenant_id).filter(Boolean))]
 
-  const { data: tenants } = tenantIds.length > 0
+  const { data: tenants, error: tenantsError } = tenantIds.length > 0
     ? await admin.from('tenants').select('id, first_name, last_name').in('id', tenantIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (tenantsError) console.error('[payments] tenants query error:', tenantsError)
 
   // Step 5: rent charges
-  const { data: charges } = leaseIds.length > 0
+  const { data: charges, error: chargesError } = leaseIds.length > 0
     ? await admin
         .from('rent_charges')
         .select('id, lease_id, charge_month, ha_amount, tenant_amount, total_due, notes')
         .in('lease_id', leaseIds)
         .order('charge_month', { ascending: false })
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (chargesError) console.error('[payments] rent_charges query error:', chargesError)
 
   const chargeIds = (charges ?? []).map((c: any) => c.id)
 
   // Step 6: payments for those charges
-  const { data: payments } = chargeIds.length > 0
+  const { data: payments, error: paymentsError } = chargeIds.length > 0
     ? await admin
         .from('payments')
         .select('id, charge_id, amount, paid_by, method, paid_date, notes')
         .in('charge_id', chargeIds)
-    : { data: [] }
+    : { data: [], error: null }
+
+  if (paymentsError) console.error('[payments] payments query error:', paymentsError)
 
   // Build lookup maps
   const unitMap: Record<string, any> = Object.fromEntries((units ?? []).map((u: any) => [u.id, u]))
@@ -110,8 +126,8 @@ export default async function PaymentsPage() {
       property_name: (property?.name ?? null) as string | null,
       unit_number: (unit?.unit_number ?? null) as string | null,
       tenant_name: tenant ? `${tenant.first_name} ${tenant.last_name}` : null as string | null,
-      ha_amount: (l.ha_amount ?? null) as number | null,
-      tenant_amount: (l.tenant_amount ?? null) as number | null,
+      ha_amount: null,
+      tenant_amount: null,
       monthly_rent: (l.monthly_rent ?? null) as number | null,
     }
   })
