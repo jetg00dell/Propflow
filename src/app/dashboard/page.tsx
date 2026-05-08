@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     admin.from('units').select('id, status, market_rent'),
     admin.from('payments').select('id, amount, status, paid_date, due_date, type').order('created_at', { ascending: false }).limit(5),
-    admin.from('maintenance_requests').select('id, title, priority, status, created_at, category').eq('status', 'open').order('created_at', { ascending: false }).limit(4),
+    admin.from('maintenance_requests').select('id, title, urgency, status, created_at, category').eq('status', 'open').order('created_at', { ascending: false }).limit(4),
     admin.from('leases').select('id, end_date, unit_id').gte('end_date', now.toISOString()).lte('end_date', in90.toISOString()).order('end_date', { ascending: true }),
   ])
 

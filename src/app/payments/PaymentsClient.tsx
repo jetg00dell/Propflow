@@ -21,6 +21,7 @@ type ChargeRow = {
   charge_month: string
   ha_amount: number
   tenant_amount: number
+  total_due: number
   notes: string | null
   property_name: string | null
   unit_number: string | null
@@ -448,9 +449,8 @@ function AddChargeModal({ leases, onClose, onSaved }: {
 
 function chargeStatus(c: ChargeRow): 'Paid' | 'Partial' | 'Unpaid' {
   const paid = c.payments.reduce((s, p) => s + p.amount, 0)
-  const expected = c.ha_amount + c.tenant_amount
   if (paid === 0) return 'Unpaid'
-  if (paid >= expected) return 'Paid'
+  if (paid >= c.total_due) return 'Paid'
   return 'Partial'
 }
 
@@ -475,7 +475,7 @@ export default function PaymentsClient({ charges, leases }: {
     (s, c) => s + c.payments.filter(p => p.paid_by === 'ha').reduce((a, p) => a + p.amount, 0), 0)
   const tenantCollected = currentMonthCharges.reduce(
     (s, c) => s + c.payments.filter(p => p.paid_by === 'tenant').reduce((a, p) => a + p.amount, 0), 0)
-  const totalExpected = currentMonthCharges.reduce((s, c) => s + c.ha_amount + c.tenant_amount, 0)
+  const totalExpected = currentMonthCharges.reduce((s, c) => s + c.total_due, 0)
   const totalCollected = haCollected + tenantCollected
   const outstanding = Math.max(0, totalExpected - totalCollected)
 
@@ -563,7 +563,7 @@ export default function PaymentsClient({ charges, leases }: {
                   const haPaid = c.payments.filter(p => p.paid_by === 'ha').reduce((s, p) => s + p.amount, 0)
                   const tenantPaid = c.payments.filter(p => p.paid_by === 'tenant').reduce((s, p) => s + p.amount, 0)
                   const totalPaid = haPaid + tenantPaid
-                  const totalDue = c.ha_amount + c.tenant_amount
+                  const totalDue = c.total_due
                   const expanded = expandedChargeId === c.id
 
                   return (

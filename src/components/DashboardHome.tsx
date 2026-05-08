@@ -86,7 +86,7 @@ export default function DashboardHome({ units, recentPayments, maintenanceItems,
     },
     {
       label: "Open Maintenance", value: String(openMaintenance),
-      sub: `${maintenanceItems.filter(m => m.priority === "high").length} high priority`, trend: "neutral", trendVal: "",
+      sub: `${maintenanceItems.filter(m => m.urgency === "high").length} high priority`, trend: "neutral", trendVal: "",
     },
     {
       label: "Leases Expiring", value: String(expiringCount),
@@ -208,8 +208,8 @@ export default function DashboardHome({ units, recentPayments, maintenanceItems,
               {maintenanceItems.map((m, i) => (
                 <div key={i} className="bg-[#F5F6FA] border border-gray-200 rounded-xl p-4 hover:border-[#1C7BC0] transition-colors cursor-pointer">
                   <div className="flex items-center gap-2 mb-3">
-                    <PriorityDot priority={m.priority} />
-                    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">{m.priority}</span>
+                    <PriorityDot priority={m.urgency} />
+                    <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">{m.urgency}</span>
                     <span className="ml-auto text-[10px] text-gray-400">{timeAgo(m.created_at)}</span>
                   </div>
                   <p className="text-sm font-medium text-[#1A2B4A] mb-1 leading-tight">{m.title}</p>

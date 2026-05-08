@@ -20,7 +20,7 @@ export default async function FinancialsPage() {
   // 1. All properties
   const { data: properties } = await admin
     .from('properties')
-    .select('id, name, property_type, status, address, city, state, mortgage_payment, mortgage_balance, mortgage_rate, mortgage_lender, mortgage_balance_date, insurance_policy, insurance_expiry, hoa_fee, property_tax, insurance_premium')
+    .select('id, name, property_type, status, address, city, state, mortgage_payment, mortgage_balance, mortgage_rate, mortgage_lender, mortgage_balance_date, hoa_fee, property_tax, insurance_premium')
     .order('name')
 
   // 2. All units
@@ -79,8 +79,8 @@ export default async function FinancialsPage() {
       mortgagePayment,
       mortgageBalanceConfirmedDate
     )
-    const propertyTax = (p.property_tax ?? 0) / 12        // annual -> monthly
-    const insurance = p.insurance_policy ? (p.insurance_policy / 12) : 0  // annual premium -> monthly
+    const propertyTax = (p.property_tax ?? 0) / 12
+    const insurance = (p.insurance_premium ?? 0) / 12
     const hoaFee = p.hoa_fee ?? 0
 
     const totalExpenses = mortgagePayment + propertyTax + insurance + hoaFee

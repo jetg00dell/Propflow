@@ -46,7 +46,7 @@ export default async function PaymentsPage() {
   const { data: charges } = leaseIds.length > 0
     ? await admin
         .from('rent_charges')
-        .select('id, lease_id, charge_month, ha_amount, tenant_amount, notes')
+        .select('id, lease_id, charge_month, ha_amount, tenant_amount, total_due, notes')
         .in('lease_id', leaseIds)
         .order('charge_month', { ascending: false })
     : { data: [] }
@@ -92,6 +92,7 @@ export default async function PaymentsPage() {
       charge_month: c.charge_month as string,
       ha_amount: (c.ha_amount ?? 0) as number,
       tenant_amount: (c.tenant_amount ?? 0) as number,
+      total_due: (c.total_due ?? (c.ha_amount ?? 0) + (c.tenant_amount ?? 0)) as number,
       notes: (c.notes ?? null) as string | null,
       property_name: (property?.name ?? null) as string | null,
       unit_number: (unit?.unit_number ?? null) as string | null,

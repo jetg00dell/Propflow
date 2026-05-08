@@ -149,19 +149,23 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     }
   }
 
-  const { data: recentPayments } = await supabase
-    .from('payments')
-    .select(`
-      id,
-      amount,
-      paid_date,
-      type,
-      status,
-      unit_id
-    `)
-    .in('unit_id', unitIds)
-    .order('paid_date', { ascending: false })
-    .limit(10)
+  const propertyLeaseIds = (leases ?? []).map((l: any) => l.id)
+  const { data: propertyCharges } = propertyLeaseIds.length > 0
+    ? await admin
+        .from('rent_charges')
+        .select('id')
+        .in('lease_id', propertyLeaseIds)
+    : { data: [] }
+
+  const propertyChargeIds = (propertyCharges ?? []).map((c: any) => c.id)
+  const { data: recentPayments } = propertyChargeIds.length > 0
+    ? await admin
+        .from('payments')
+        .select('id, amount, paid_date, type, status')
+        .in('charge_id', propertyChargeIds)
+        .order('paid_date', { ascending: false })
+        .limit(10)
+    : { data: [] }
 
   const units = property.units ?? []
   const occupied = units.filter((u: any) => u.status === 'occupied').length
