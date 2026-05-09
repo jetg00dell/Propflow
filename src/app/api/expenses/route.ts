@@ -48,3 +48,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to save expense' }, { status: 500 })
   }
 }
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const supabase = createAdminClient()
+    const body = await req.json()
+    const { id, date, amount, category, payee, property_id, notes, maintenance_request_id } = body
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+    const { error } = await supabase.from('expenses').update({
+      date,
+      transaction_date: date,
+      amount: parseFloat(amount),
+      category,
+      payee,
+      description: payee,
+      property_id,
+      notes: notes || null,
+      maintenance_request_id: maintenance_request_id || null,
+    }).eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('PATCH /api/expenses error:', err)
+    return NextResponse.json({ error: 'Failed to update expense' }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const supabase = createAdminClient()
+    const { id } = await req.json()
+    if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+    const { error } = await supabase.from('expenses').delete().eq('id', id)
+    if (error) throw error
+    return NextResponse.json({ success: true })
+  } catch (err) {
+    console.error('DELETE /api/expenses error:', err)
+    return NextResponse.json({ error: 'Failed to delete expense' }, { status: 500 })
+  }
+}

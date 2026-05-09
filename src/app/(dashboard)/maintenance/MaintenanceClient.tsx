@@ -187,6 +187,7 @@ export default function MaintenanceClient({ requests: initial, properties, units
   const [updating, setUpdating] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [addOpen, setAddOpen] = useState(false)
+  const [linkedExpenses, setLinkedExpenses] = useState<Record<string, any[]>>({})
 
   const filtered = filter === 'all' ? requests : requests.filter((r) => r.status === filter)
 
@@ -274,7 +275,18 @@ export default function MaintenanceClient({ requests: initial, properties, units
               <div key={req.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div
                   className="flex items-start justify-between px-5 py-4 cursor-pointer hover:bg-[#F0F7FF] transition-colors"
-                  onClick={() => setExpanded(isExpanded ? null : req.id)}
+                  onClick={() => {
+                    const nextId = isExpanded ? null : req.id
+                    setExpanded(nextId)
+                    if (nextId && linkedExpenses[nextId] === undefined) {
+                      fetch('/api/expenses')
+                        .then(r => r.json())
+                        .then(data => {
+                          const matched = (data.expenses ?? []).filter((e: any) => e.maintenance_request_id === nextId)
+                          setLinkedExpenses(prev => ({ ...prev, [nextId]: matched }))
+                        })
+                    }
+                  }}
                 >
                   <div className="flex-1 min-w-0 mr-4">
                     <div className="flex items-center gap-2 mb-1">
@@ -307,6 +319,46 @@ export default function MaintenanceClient({ requests: initial, properties, units
                       value={notes[req.id] ?? req.notes ?? ''}
                       onChange={(e) => setNotes((prev) => ({ ...prev, [req.id]: e.target.value }))}
                     />
+
+                    <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wide">Linked Expenses</p>
+                    {(() => {
+                      const exps = linkedExpenses[req.id]
+                      if (!exps) return <p className="text-xs text-gray-400 mb-3">Loading…</p>
+                      if (exps.length === 0) return <p className="text-xs text-gray-400 mb-3">No expenses linked yet</p>
+                      const total = exps.reduce((s, e) => s + Number(e.amount), 0)
+                      return (
+                        <div className="mb-3">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-gray-400 border-b border-gray-100">
+                                <th className="text-left py-1 font-medium">Date</th>
+                                <th className="text-left py-1 font-medium">Payee</th>
+                                <th className="text-left py-1 font-medium">Category</th>
+                                <th className="text-right py-1 font-medium">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {exps.map((e: any) => (
+                                <tr key={e.id} className="border-b border-gray-50">
+                                  <td className="py-1 text-gray-500">{formatDate(e.date)}</td>
+                                  <td className="py-1 text-[#1A2B4A]">{e.payee || e.description || '—'}</td>
+                                  <td className="py-1 text-gray-500 capitalize">{e.category?.replace(/_/g, ' ')}</td>
+                                  <td className={`py-1 text-right font-medium ${e.amount < 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                    {e.amount < 0 ? `-$${Math.abs(Number(e.amount)).toFixed(2)}` : `$${Number(e.amount).toFixed(2)}`}
+                                  </td>
+                                </tr>
+                              ))}
+                              <tr className="border-t border-gray-200 font-semibold">
+                                <td colSpan={3} className="py-1 text-[#1A2B4A]">Total cost</td>
+                                <td className={`py-1 text-right ${total < 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                  {total < 0 ? `-$${Math.abs(total).toFixed(2)}` : `$${total.toFixed(2)}`}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    })()}
 
                     <div className="flex gap-2">
                       {req.status !== 'in_progress' && (

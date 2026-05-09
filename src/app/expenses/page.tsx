@@ -162,6 +162,18 @@ export default function ExpensesPage() {
   const [toast, setToast] = useState(false)
   const [toastFading, setToastFading] = useState(false)
 
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null)
+  const [editDate, setEditDate] = useState('')
+  const [editAmount, setEditAmount] = useState('')
+  const [editPayee, setEditPayee] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editPropertyId, setEditPropertyId] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editMaintenanceRequestId, setEditMaintenanceRequestId] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   async function handleUpload(file: File) {
     setFilename(file.name)
     setStep('processing')
@@ -263,6 +275,52 @@ export default function ExpensesPage() {
       setAddError(e.message)
     } finally {
       setAddSaving(false)
+    }
+  }
+
+  async function handleEditExpense() {
+    if (!editingExpense) return
+    if (!editAmount || !editPayee) { setEditError('Amount and payee are required.'); return }
+    setEditSaving(true)
+    setEditError('')
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingExpense.id,
+          date: editDate,
+          amount: parseFloat(editAmount),
+          category: editCategory,
+          payee: editPayee,
+          property_id: editPropertyId || null,
+          notes: editNotes || null,
+          maintenance_request_id: editMaintenanceRequestId || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to save')
+      setEditingExpense(null)
+      refreshExpenses()
+    } catch (e: any) {
+      setEditError(e.message)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  async function handleDeleteExpense(id: string) {
+    if (!confirm('Delete this expense? This cannot be undone.')) return
+    setDeletingId(id)
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (res.ok) refreshExpenses()
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -636,9 +694,39 @@ export default function ExpensesPage() {
         const totalCred = filtered.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0)
         const net = totalExp - totalCred
         const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        function exportCSV() {
+          const header = ['Date', 'Payee', 'Property', 'Category', 'Amount', 'Source', 'Notes']
+          const escape = (val: string) => val.includes(',') || val.includes('"') || val.includes('\n') ? `"${val.replace(/"/g, '""')}"` : val
+          const rows = filtered.map(e => [
+            formatDate(e.date),
+            e.payee,
+            PROPERTY_LIST.find(p => p.id === e.property_id)?.name ?? '',
+            categoryLabel(e.category),
+            e.amount.toFixed(2),
+            e.source === 'csv_import' ? 'Import' : 'Manual',
+            e.notes ?? '',
+          ].map(escape).join(','))
+          const csv = [header.join(','), ...rows].join('\n')
+          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `propflow-expenses-${new Date().toISOString().split('T')[0]}.csv`
+          a.click()
+          URL.revokeObjectURL(url)
+        }
+
         return (
           <div className="mt-8">
-            <h2 className="text-lg font-semibold text-[#1A2B4A] mb-4">All Expenses</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-[#1A2B4A]">All Expenses</h2>
+              <button
+                onClick={exportCSV}
+                className="border border-gray-200 text-[#1A2B4A] text-sm px-4 py-2 rounded-lg hover:bg-gray-50"
+              >
+                Export CSV
+              </button>
+            </div>
 
             {/* Date tab toggle */}
             <div className="flex items-center gap-1 mb-3">
@@ -759,6 +847,7 @@ export default function ExpensesPage() {
                       <th className="text-left text-xs font-medium text-gray-500 px-4 py-3">Category</th>
                       <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Amount</th>
                       <th className="text-center text-xs font-medium text-gray-500 px-4 py-3">Source</th>
+                      <th className="text-right text-xs font-medium text-gray-500 px-4 py-3">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -789,6 +878,31 @@ export default function ExpensesPage() {
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isManual ? 'bg-gray-100 text-gray-600' : 'bg-blue-50 text-[#1C7BC0]'}`}>
                               {isManual ? 'Manual' : 'Import'}
                             </span>
+                          </td>
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => {
+                                setEditingExpense(e)
+                                setEditDate(e.date)
+                                setEditAmount(String(e.amount))
+                                setEditPayee(e.payee || e.description || '')
+                                setEditCategory(e.category)
+                                setEditPropertyId(e.property_id ?? '')
+                                setEditNotes(e.notes ?? '')
+                                setEditMaintenanceRequestId(e.maintenance_request_id ?? '')
+                                setEditError('')
+                              }}
+                              className="text-[#1C7BC0] text-xs hover:underline mr-3"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteExpense(e.id)}
+                              disabled={deletingId === e.id}
+                              className="text-red-400 text-xs hover:underline disabled:opacity-50"
+                            >
+                              {deletingId === e.id ? 'Deleting...' : 'Delete'}
+                            </button>
                           </td>
                         </tr>
                       )
@@ -914,6 +1028,118 @@ export default function ExpensesPage() {
                   className={`flex-1 py-2 rounded-lg bg-[#1C7BC0] text-white text-sm font-medium text-center transition-colors ${addSaving ? 'opacity-50 cursor-default' : 'hover:bg-blue-700 cursor-pointer'}`}
                 >
                   {addSaving ? 'Saving...' : 'Save Expense'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Expense Modal */}
+      {editingExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-base font-semibold text-[#1A2B4A] mb-5">Edit Expense</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Date</label>
+                <input
+                  type="date"
+                  value={editDate}
+                  onChange={e => setEditDate(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Amount</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editAmount}
+                  onChange={e => setEditAmount(e.target.value)}
+                  placeholder="$0.00"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Vendor / Payee</label>
+                <input
+                  type="text"
+                  value={editPayee}
+                  onChange={e => setEditPayee(e.target.value)}
+                  placeholder="e.g. Home Depot"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Category</label>
+                <select
+                  value={editCategory}
+                  onChange={e => setEditCategory(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                >
+                  {CATEGORIES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">Property</label>
+                <select
+                  value={editPropertyId}
+                  onChange={e => setEditPropertyId(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                >
+                  <option value="">No property</option>
+                  {PROPERTY_LIST.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {(editCategory === 'repair_maintenance' || editCategory === 'supplies') && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Link to maintenance request (optional)</label>
+                  <select
+                    value={editMaintenanceRequestId}
+                    onChange={e => setEditMaintenanceRequestId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                  >
+                    <option value="">None</option>
+                    {(editPropertyId
+                      ? maintenanceRequests.filter(r => r.property_id === editPropertyId)
+                      : maintenanceRequests
+                    ).map(r => (
+                      <option key={r.id} value={r.id}>{r.title} · Unit {r.unit_number}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-gray-500 block mb-1">
+                  Notes <span className="text-gray-300 font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={editNotes}
+                  onChange={e => setEditNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Optional notes..."
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30 resize-none"
+                />
+              </div>
+              {editError && <p className="text-xs text-red-600">{editError}</p>}
+              <div className="flex gap-3 pt-1">
+                <div
+                  onClick={() => { setEditingExpense(null); setEditError('') }}
+                  className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors text-center cursor-pointer"
+                >
+                  Cancel
+                </div>
+                <div
+                  onClick={editSaving ? undefined : handleEditExpense}
+                  className={`flex-1 py-2 rounded-lg bg-[#1C7BC0] text-white text-sm font-medium text-center transition-colors ${editSaving ? 'opacity-50 cursor-default' : 'hover:bg-blue-700 cursor-pointer'}`}
+                >
+                  {editSaving ? 'Saving...' : 'Save Changes'}
                 </div>
               </div>
             </div>

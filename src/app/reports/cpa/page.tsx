@@ -64,9 +64,12 @@ export default function CPAReportPage() {
   const [totals, setTotals] = useState<Totals | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [filterYear, setFilterYear] = useState(new Date().getFullYear().toString())
 
   useEffect(() => {
-    fetch('/api/reports/cpa')
+    setLoading(true)
+    setError('')
+    fetch(`/api/reports/cpa?year=${filterYear}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) throw new Error(data.error)
@@ -75,7 +78,7 @@ export default function CPAReportPage() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [filterYear])
 
   const activeRows = rows.filter(r => r.income > 0 || r.total_expenses > 0)
 
@@ -94,7 +97,7 @@ export default function CPAReportPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-[#1A2B4A]">CPA Report</h1>
-          <p className="text-sm text-gray-500 mt-1">Income and expenses by property — {new Date().getFullYear()}</p>
+          <p className="text-sm text-gray-500 mt-1">Income and expenses by property — {filterYear === 'all' ? 'All years' : filterYear}</p>
         </div>
         <button
           onClick={() => window.print()}
@@ -102,6 +105,22 @@ export default function CPAReportPage() {
         >
           Print / Save PDF
         </button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-6">
+        {(['all', '2024', '2025', '2026'] as const).map(y => (
+          <button
+            key={y}
+            onClick={() => setFilterYear(y)}
+            className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+              filterYear === y
+                ? 'bg-[#1C7BC0] text-white'
+                : 'border border-gray-200 text-[#1A2B4A] hover:bg-gray-50'
+            }`}
+          >
+            {y === 'all' ? 'All years' : y}
+          </button>
+        ))}
       </div>
 
       {loading && (
