@@ -6,7 +6,7 @@ export async function GET() {
     const supabase = createAdminClient()
     const { data, error } = await supabase
       .from('expenses')
-      .select('id, date, description, category, amount, property_id, payee, source, notes, created_at')
+      .select('id, date, description, category, amount, property_id, payee, source, notes, created_at, maintenance_request_id')
       .order('date', { ascending: false })
     if (error) throw error
     return NextResponse.json({ expenses: data })
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       property_id,
       notes: notes || null,
       source: source ?? 'manual',
+      maintenance_request_id: body.maintenance_request_id ?? null,
     })
 
     if (error) throw error

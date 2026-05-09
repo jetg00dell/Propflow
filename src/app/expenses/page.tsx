@@ -108,6 +108,7 @@ type Expense = {
   source: string
   notes: string
   created_at: string
+  maintenance_request_id?: string | null
 }
 
 export default function ExpensesPage() {
@@ -123,6 +124,7 @@ export default function ExpensesPage() {
 
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [expensesLoading, setExpensesLoading] = useState(true)
+  const [maintenanceRequests, setMaintenanceRequests] = useState<{id: string, title: string, property_id: string, property_name: string, unit_number: string}[]>([])
   const [filterProperty, setFilterProperty] = useState('')
   const [filterCategory, setFilterCategory] = useState('no_mortgage')
   const [filterTab, setFilterTab] = useState<'period' | 'year'>('period')
@@ -140,7 +142,12 @@ export default function ExpensesPage() {
     }
   }
 
-  useEffect(() => { refreshExpenses() }, [])
+  useEffect(() => {
+    refreshExpenses()
+    fetch('/api/maintenance-requests')
+      .then(r => r.json())
+      .then(data => setMaintenanceRequests(data.requests ?? []))
+  }, [])
 
   const [addOpen, setAddOpen] = useState(false)
   const [addDate, setAddDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -151,6 +158,7 @@ export default function ExpensesPage() {
   const [addNotes, setAddNotes] = useState('')
   const [addSaving, setAddSaving] = useState(false)
   const [addError, setAddError] = useState('')
+  const [formMaintenanceRequestId, setFormMaintenanceRequestId] = useState('')
   const [toast, setToast] = useState(false)
   const [toastFading, setToastFading] = useState(false)
 
@@ -233,6 +241,7 @@ export default function ExpensesPage() {
           property_id: addPropertyId || null,
           notes: addNotes || null,
           source: 'manual',
+          maintenance_request_id: formMaintenanceRequestId || null,
         }),
       })
       const data = await res.json()
@@ -244,6 +253,7 @@ export default function ExpensesPage() {
       setAddCategory('repair_maintenance')
       setAddPropertyId('')
       setAddNotes('')
+      setFormMaintenanceRequestId('')
       setToast(true)
       setToastFading(false)
       setTimeout(() => setToastFading(true), 2500)
@@ -758,7 +768,14 @@ export default function ExpensesPage() {
                       return (
                         <tr key={e.id} className="border-t border-gray-100 hover:bg-gray-50">
                           <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{formatDate(e.date)}</td>
-                          <td className="px-4 py-3 text-[#1A2B4A] text-sm max-w-[200px] truncate">{e.payee || e.description || '—'}</td>
+                          <td className="px-4 py-3 text-[#1A2B4A] text-sm max-w-[200px]">
+                            <div className="flex items-center">
+                              <span className="truncate">{e.payee || e.description || '—'}</span>
+                              {e.maintenance_request_id && (
+                                <span className="bg-[#E6F1FB] text-[#1C7BC0] text-xs px-2 py-0.5 rounded-full ml-2 whitespace-nowrap">linked</span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-gray-500 text-xs">{propName}</td>
                           <td className="px-4 py-3">
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor(e.category)}`}>
@@ -854,6 +871,24 @@ export default function ExpensesPage() {
                   ))}
                 </select>
               </div>
+              {(addCategory === 'repair_maintenance' || addCategory === 'supplies') && (
+                <div>
+                  <label className="text-xs font-medium text-gray-500 block mb-1">Link to maintenance request (optional)</label>
+                  <select
+                    value={formMaintenanceRequestId}
+                    onChange={e => setFormMaintenanceRequestId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+                  >
+                    <option value="">None</option>
+                    {(addPropertyId
+                      ? maintenanceRequests.filter(r => r.property_id === addPropertyId)
+                      : maintenanceRequests
+                    ).map(r => (
+                      <option key={r.id} value={r.id}>{r.title} · Unit {r.unit_number}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-gray-500 block mb-1">
                   Notes <span className="text-gray-300 font-normal">(optional)</span>
@@ -869,7 +904,7 @@ export default function ExpensesPage() {
               {addError && <p className="text-xs text-red-600">{addError}</p>}
               <div className="flex gap-3 pt-1">
                 <div
-                  onClick={() => { setAddOpen(false); setAddError('') }}
+                  onClick={() => { setAddOpen(false); setAddError(''); setFormMaintenanceRequestId('') }}
                   className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors text-center cursor-pointer"
                 >
                   Cancel
