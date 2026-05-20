@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 
 type Tenant = {
   id: string
@@ -32,6 +32,8 @@ type Transaction = {
   _user_match_type?: string
   _skip?: boolean
   _idx?: number
+  _possible_duplicate?: boolean
+  _duplicate_matches?: any[]
 }
 
 const CATEGORIES = [
@@ -130,13 +132,33 @@ export default function ExpensesPage() {
   const [filterTab, setFilterTab] = useState<'period' | 'year'>('period')
   const [filterPeriod, setFilterPeriod] = useState('ytd')
   const [filterPeriodYear, setFilterPeriodYear] = useState('2026')
+  const [duplicateIds, setDuplicateIds] = useState<Set<string>>(new Set())
+  const [showDuplicatesOnly, setShowDuplicatesOnly] = useState(false)
 
   async function refreshExpenses() {
     setExpensesLoading(true)
     try {
       const res = await fetch('/api/expenses')
       const data = await res.json()
-      if (res.ok) setExpenses(data.expenses ?? [])
+      if (res.ok) {
+        const expList: Expense[] = data.expenses ?? []
+        setExpenses(expList)
+        const dupeIds = new Set<string>()
+        for (let i = 0; i < expList.length; i++) {
+          for (let j = i + 1; j < expList.length; j++) {
+            const a = expList[i]
+            const b = expList[j]
+            if (a.property_id === b.property_id && a.amount === b.amount) {
+              const diff = Math.abs(new Date(a.date).getTime() - new Date(b.date).getTime())
+              if (diff <= 7 * 24 * 60 * 60 * 1000) {
+                dupeIds.add(a.id)
+                dupeIds.add(b.id)
+              }
+            }
+          }
+        }
+        setDuplicateIds(dupeIds)
+      }
     } finally {
       setExpensesLoading(false)
     }
@@ -173,6 +195,8 @@ export default function ExpensesPage() {
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [addDuplicateWarning, setAddDuplicateWarning] = useState<any[]>([])
+  const [editDuplicateWarning, setEditDuplicateWarning] = useState<any[]>([])
 
   async function handleUpload(file: File) {
     setFilename(file.name)
@@ -190,7 +214,17 @@ export default function ExpensesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
 
-      setTransactions(data.transactions)
+      const txns: Transaction[] = data.transactions ?? []
+      const withDupes = await Promise.all(
+        txns.map(async t => {
+          if (t.type === 'withdrawal' && t.property_id) {
+            const dupes = await checkForDuplicates(Math.abs(t.amount).toString(), t.date, t.property_id)
+            if (dupes.length > 0) return { ...t, _possible_duplicate: true, _duplicate_matches: dupes }
+          }
+          return t
+        })
+      )
+      setTransactions(withDupes)
       setTenants(data.tenants ?? [])
       setSummary(data.summary)
       setStep('review')
@@ -266,6 +300,7 @@ export default function ExpensesPage() {
       setAddPropertyId('')
       setAddNotes('')
       setFormMaintenanceRequestId('')
+      setAddDuplicateWarning([])
       setToast(true)
       setToastFading(false)
       setTimeout(() => setToastFading(true), 2500)
@@ -301,6 +336,7 @@ export default function ExpensesPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Failed to save')
       setEditingExpense(null)
+      setEditDuplicateWarning([])
       refreshExpenses()
     } catch (e: any) {
       setEditError(e.message)
@@ -321,6 +357,21 @@ export default function ExpensesPage() {
       if (res.ok) refreshExpenses()
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function checkForDuplicates(amount: string, date: string, property_id: string, exclude_id?: string): Promise<any[]> {
+    if (!amount || !date || !property_id) return []
+    try {
+      const res = await fetch('/api/expenses/check-duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, date, property_id, exclude_id }),
+      })
+      const data = await res.json()
+      return data.duplicates ?? []
+    } catch {
+      return []
     }
   }
 
@@ -469,6 +520,16 @@ export default function ExpensesPage() {
                         {t.review_reason && (
                           <div className="text-xs text-amber-600 mt-0.5">{t.review_reason}</div>
                         )}
+                        {t._possible_duplicate && t._duplicate_matches && t._duplicate_matches.length > 0 && (
+                          <div className="mt-1.5 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800">
+                            <div className="font-medium mb-1">⚠️ Possible duplicate — a similar expense already exists:</div>
+                            {t._duplicate_matches.map((d: any) => (
+                              <div key={d.id} className="mt-0.5">
+                                {d.date} · {d.payee || d.description || '—'} · ${parseFloat(d.amount).toFixed(2)}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Right: controls */}
@@ -573,29 +634,45 @@ export default function ExpensesPage() {
                 </thead>
                 <tbody>
                   {transactions.map((t, i) => (
-                    <tr key={i} className="border-t border-gray-100 hover:bg-gray-50">
-                      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{t.date}</td>
-                      <td className="px-4 py-3 text-[#1A2B4A] max-w-xs truncate">{t.description}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{t.tenant_name ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">{t.property_name ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor(t._user_category ?? t.category)}`}>
-                          {categoryLabel(t._user_category ?? t.category)}
-                        </span>
-                      </td>
-                      <td className={`px-4 py-3 text-right font-medium ${t.type === 'deposit' ? 'text-green-600' : 'text-[#1A2B4A]'}`}>
-                        {t.type === 'deposit' ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {t._skip ? (
-                          <span className="text-xs text-gray-400">Skipped</span>
-                        ) : t.needs_review && !t._resolved ? (
-                          <span className="text-xs text-amber-600 font-medium">Review</span>
-                        ) : (
-                          <span className="text-xs text-green-600">✓</span>
-                        )}
-                      </td>
-                    </tr>
+                    <Fragment key={i}>
+                      <tr className="border-t border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{t.date}</td>
+                        <td className="px-4 py-3 text-[#1A2B4A] max-w-xs truncate">{t.description}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{t.tenant_name ?? '—'}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{t.property_name ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${categoryColor(t._user_category ?? t.category)}`}>
+                            {categoryLabel(t._user_category ?? t.category)}
+                          </span>
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${t.type === 'deposit' ? 'text-green-600' : 'text-[#1A2B4A]'}`}>
+                          {t.type === 'deposit' ? '+' : '-'}${Math.abs(t.amount).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {t._skip ? (
+                            <span className="text-xs text-gray-400">Skipped</span>
+                          ) : t.needs_review && !t._resolved ? (
+                            <span className="text-xs text-amber-600 font-medium">Review</span>
+                          ) : (
+                            <span className="text-xs text-green-600">✓</span>
+                          )}
+                        </td>
+                      </tr>
+                      {t._possible_duplicate && t._duplicate_matches && t._duplicate_matches.length > 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-4 pb-3">
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800">
+                              <div className="font-medium mb-1">⚠️ Possible duplicate — a similar expense already exists:</div>
+                              {t._duplicate_matches.map((d: any) => (
+                                <div key={d.id} className="mt-0.5">
+                                  {d.date} · {d.payee || d.description || '—'} · ${parseFloat(d.amount).toFixed(2)}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -689,6 +766,7 @@ export default function ExpensesPage() {
             if (filterPeriod === 'ytd') return year === filterPeriodYear
             return year === filterPeriodYear && month === filterPeriod
           })
+          .filter(e => !showDuplicatesOnly || duplicateIds.has(e.id))
           .sort((a, b) => b.date.localeCompare(a.date))
         const totalExp = filtered.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0)
         const totalCred = filtered.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0)
@@ -720,12 +798,20 @@ export default function ExpensesPage() {
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-[#1A2B4A]">All Expenses</h2>
-              <button
-                onClick={exportCSV}
-                className="border border-gray-200 text-[#1A2B4A] text-sm px-4 py-2 rounded-lg hover:bg-gray-50"
-              >
-                Export CSV
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowDuplicatesOnly(v => !v)}
+                  className={`text-sm px-4 py-2 rounded-lg border border-yellow-300 text-yellow-700 ${showDuplicatesOnly ? 'bg-yellow-50' : 'hover:bg-yellow-50'}`}
+                >
+                  {duplicateIds.size > 0 ? `Duplicates (${duplicateIds.size})` : 'Duplicates'}
+                </button>
+                <button
+                  onClick={exportCSV}
+                  className="border border-gray-200 text-[#1A2B4A] text-sm px-4 py-2 rounded-lg hover:bg-gray-50"
+                >
+                  Export CSV
+                </button>
+              </div>
             </div>
 
             {/* Date tab toggle */}
@@ -863,6 +949,9 @@ export default function ExpensesPage() {
                               {e.maintenance_request_id && (
                                 <span className="bg-[#E6F1FB] text-[#1C7BC0] text-xs px-2 py-0.5 rounded-full ml-2 whitespace-nowrap">linked</span>
                               )}
+                              {duplicateIds.has(e.id) && (
+                                <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-0.5 rounded-full ml-2 whitespace-nowrap">⚠️ dup</span>
+                              )}
                             </div>
                           </td>
                           <td className="px-4 py-3 text-gray-500 text-xs">{propName}</td>
@@ -938,6 +1027,10 @@ export default function ExpensesPage() {
                   min="0"
                   value={addAmount}
                   onChange={e => setAddAmount(e.target.value)}
+                  onBlur={async () => {
+                    const dupes = await checkForDuplicates(addAmount, addDate, addPropertyId)
+                    setAddDuplicateWarning(dupes)
+                  }}
                   placeholder="$0.00"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
                 />
@@ -976,7 +1069,11 @@ export default function ExpensesPage() {
                 <label className="text-xs font-medium text-gray-500 block mb-1">Property</label>
                 <select
                   value={addPropertyId}
-                  onChange={e => setAddPropertyId(e.target.value)}
+                  onChange={async e => {
+                    setAddPropertyId(e.target.value)
+                    const dupes = await checkForDuplicates(addAmount, addDate, e.target.value)
+                    setAddDuplicateWarning(dupes)
+                  }}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
                 >
                   <option value="">No property</option>
@@ -985,6 +1082,16 @@ export default function ExpensesPage() {
                   ))}
                 </select>
               </div>
+              {addDuplicateWarning.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800">
+                  <div className="font-medium mb-1">⚠️ Possible duplicate — a similar expense already exists:</div>
+                  {addDuplicateWarning.map(d => (
+                    <div key={d.id} className="mt-0.5">
+                      {d.date} · {d.payee || d.description || '—'} · ${parseFloat(d.amount).toFixed(2)}
+                    </div>
+                  ))}
+                </div>
+              )}
               {(addCategory === 'repair_maintenance' || addCategory === 'supplies') && (
                 <div>
                   <label className="text-xs font-medium text-gray-500 block mb-1">Link to maintenance request (optional)</label>
@@ -1018,7 +1125,7 @@ export default function ExpensesPage() {
               {addError && <p className="text-xs text-red-600">{addError}</p>}
               <div className="flex gap-3 pt-1">
                 <div
-                  onClick={() => { setAddOpen(false); setAddError(''); setFormMaintenanceRequestId('') }}
+                  onClick={() => { setAddOpen(false); setAddError(''); setFormMaintenanceRequestId(''); setAddDuplicateWarning([]) }}
                   className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors text-center cursor-pointer"
                 >
                   Cancel
@@ -1058,6 +1165,10 @@ export default function ExpensesPage() {
                   min="0"
                   value={editAmount}
                   onChange={e => setEditAmount(e.target.value)}
+                  onBlur={async () => {
+                    const dupes = await checkForDuplicates(editAmount, editDate, editPropertyId, editingExpense?.id)
+                    setEditDuplicateWarning(dupes)
+                  }}
                   placeholder="$0.00"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
                 />
@@ -1088,7 +1199,11 @@ export default function ExpensesPage() {
                 <label className="text-xs font-medium text-gray-500 block mb-1">Property</label>
                 <select
                   value={editPropertyId}
-                  onChange={e => setEditPropertyId(e.target.value)}
+                  onChange={async e => {
+                    setEditPropertyId(e.target.value)
+                    const dupes = await checkForDuplicates(editAmount, editDate, e.target.value, editingExpense?.id)
+                    setEditDuplicateWarning(dupes)
+                  }}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
                 >
                   <option value="">No property</option>
@@ -1097,6 +1212,16 @@ export default function ExpensesPage() {
                   ))}
                 </select>
               </div>
+              {editDuplicateWarning.length > 0 && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-xs text-yellow-800">
+                  <div className="font-medium mb-1">⚠️ Possible duplicate — a similar expense already exists:</div>
+                  {editDuplicateWarning.map(d => (
+                    <div key={d.id} className="mt-0.5">
+                      {d.date} · {d.payee || d.description || '—'} · ${parseFloat(d.amount).toFixed(2)}
+                    </div>
+                  ))}
+                </div>
+              )}
               {(editCategory === 'repair_maintenance' || editCategory === 'supplies') && (
                 <div>
                   <label className="text-xs font-medium text-gray-500 block mb-1">Link to maintenance request (optional)</label>
@@ -1130,7 +1255,7 @@ export default function ExpensesPage() {
               {editError && <p className="text-xs text-red-600">{editError}</p>}
               <div className="flex gap-3 pt-1">
                 <div
-                  onClick={() => { setEditingExpense(null); setEditError('') }}
+                  onClick={() => { setEditingExpense(null); setEditError(''); setEditDuplicateWarning([]) }}
                   className="flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors text-center cursor-pointer"
                 >
                   Cancel
