@@ -756,39 +756,31 @@ export default function ExpensesPage() {
           {(saveResult.rentMatches?.length > 0 || matchedPayments.size > 0) && (
             <div className="text-left bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 max-w-lg mx-auto">
               <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits to match in Payments:</div>
-              {saveResult.rentMatches.map((r: any, i: number) => {
-                const isMatching = matchingPayment === r.description
-                const isMatched = matchedPayments.has(r.description)
-                const matchError = matchErrors[r.description]
-                const canAutoMatch = !!(r.lease_id || r.tenant_id)
-                return (
-                  <div key={i} className={`flex items-center gap-3 py-2 border-b border-amber-100 last:border-0 ${isMatched ? 'opacity-50' : ''}`}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-amber-900 truncate">{r.description}</p>
-                      {r.tenant_name && <p className="text-xs text-amber-600">{r.tenant_name}</p>}
-                      {matchError && <p className="text-xs text-red-500 mt-0.5">{matchError}</p>}
-                    </div>
-                    <div className="text-sm font-medium text-green-700 whitespace-nowrap">
-                      +${r.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="flex-shrink-0">
-                      {isMatched ? (
-                        <span className="text-green-600 text-xs font-medium">✓ Matched</span>
-                      ) : canAutoMatch ? (
-                        <button
-                          onClick={() => handleMatchRentPayment(r)}
-                          disabled={isMatching}
-                          className="bg-[#1C7BC0] text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                        >
-                          {isMatching ? 'Matching...' : 'Match to Payments'}
-                        </button>
-                      ) : (
-                        <span className="text-xs text-amber-600 italic">Match manually in Payments</span>
-                      )}
-                    </div>
+              {saveResult.rentMatches?.map((r: any, i: number) => (
+                <div key={i} className={`flex items-center gap-3 py-2 border-b border-amber-100 last:border-0 ${matchedPayments.has(r.description) ? 'opacity-50' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-amber-900 truncate">{r.description}</p>
+                    {r.tenant_name && <p className="text-xs text-amber-600">{r.tenant_name}</p>}
+                    {matchErrors[r.description] && <p className="text-xs text-red-500">{matchErrors[r.description]}</p>}
                   </div>
-                )
-              })}
+                  <div className="text-sm font-medium text-green-700 whitespace-nowrap">+${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                  <div className="flex-shrink-0 w-36 text-right">
+                    {matchedPayments.has(r.description) ? (
+                      <span className="text-xs text-green-600 font-medium">✓ Matched</span>
+                    ) : !r.lease_id && !r.tenant_id ? (
+                      <span className="text-xs text-amber-600 italic">Match manually in Payments</span>
+                    ) : (
+                      <button
+                        onClick={() => handleMatchRentPayment(r)}
+                        disabled={matchingPayment === r.description}
+                        className="bg-[#1C7BC0] text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {matchingPayment === r.description ? 'Matching...' : 'Match to Payments'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           <div className="flex gap-3 justify-center">

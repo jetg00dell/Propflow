@@ -14,12 +14,21 @@ export async function POST(req: NextRequest) {
     if (!lease_id && tenant_id) {
       const { data: leaseLink } = await supabase
         .from('lease_tenants')
-        .select('lease_id, leases(id, monthly_rent, ha_amount, tenant_amount, status)')
+        .select('lease_id')
         .eq('tenant_id', tenant_id)
-        .eq('leases.status', 'active')
         .single()
+
       if (leaseLink?.lease_id) {
-        lease_id = leaseLink.lease_id
+        const { data: activeCheck } = await supabase
+          .from('leases')
+          .select('id, monthly_rent, ha_amount, tenant_amount, status')
+          .eq('id', leaseLink.lease_id)
+          .eq('status', 'active')
+          .single()
+
+        if (activeCheck) {
+          lease_id = leaseLink.lease_id
+        }
       }
     }
 
