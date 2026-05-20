@@ -4,10 +4,27 @@ import { createAdminClient } from '@/lib/supabase/server'
 export async function POST(req: NextRequest) {
   try {
     const supabase = createAdminClient()
-    const { tenant_id, lease_id, amount, date, description } = await req.json()
+    let { tenant_id, lease_id, amount, date, description } = await req.json()
 
-    if (!lease_id || !amount || !date) {
+    if (!amount || !date) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Fallback: resolve lease_id from tenant if not provided
+    if (!lease_id && tenant_id) {
+      const { data: leaseLink } = await supabase
+        .from('lease_tenants')
+        .select('lease_id, leases(id, monthly_rent, ha_amount, tenant_amount, status)')
+        .eq('tenant_id', tenant_id)
+        .eq('leases.status', 'active')
+        .single()
+      if (leaseLink?.lease_id) {
+        lease_id = leaseLink.lease_id
+      }
+    }
+
+    if (!lease_id) {
+      return NextResponse.json({ error: 'Could not determine lease' }, { status: 400 })
     }
 
     // Get lease details for monthly_rent and ha/tenant split
@@ -27,12 +44,15 @@ export async function POST(req: NextRequest) {
       .toISOString().split('T')[0]
 
     // Check if rent charge already exists for this lease + month
+    const chargeExisted = true
     let { data: charge } = await supabase
       .from('rent_charges')
       .select('id, total_due, tenant_amount, ha_amount')
       .eq('lease_id', lease_id)
       .eq('charge_month', chargeMonth)
       .single()
+
+    let chargeAutoCreated = false
 
     // Auto-create charge if it doesn't exist
     if (!charge) {
@@ -53,34 +73,85 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to create rent charge' }, { status: 500 })
       }
       charge = newCharge
+      chargeAutoCreated = true
     }
 
-    // Create the payment record
-    const { data: payment, error: paymentError } = await supabase
-      .from('payments')
-      .insert({
-        lease_id,
-        charge_id: charge.id,
-        amount: parseFloat(amount),
-        paid_by: 'tenant',
-        method: 'zelle',
-        status: 'completed',
-        paid_date: date,
-        notes: `Auto-matched from bank statement: ${description}`,
-      })
-      .select('id')
-      .single()
+    const notes = `Auto-matched from bank statement: ${description}`
+    const paymentIds: string[] = []
 
-    if (paymentError) {
-      return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 })
+    const haAmount = charge.ha_amount ?? 0
+    const tenantAmount = charge.tenant_amount ?? 0
+
+    if (haAmount > 0 && tenantAmount > 0) {
+      // Split payment: one HA record, one tenant record
+      const { data: haPayment, error: haError } = await supabase
+        .from('payments')
+        .insert({
+          lease_id,
+          charge_id: charge.id,
+          amount: haAmount,
+          paid_by: 'ha',
+          method: 'zelle',
+          status: 'completed',
+          paid_date: date,
+          notes,
+        })
+        .select('id')
+        .single()
+
+      if (haError) {
+        return NextResponse.json({ error: 'Failed to create HA payment' }, { status: 500 })
+      }
+      paymentIds.push(haPayment.id)
+
+      const { data: tenantPayment, error: tenantError } = await supabase
+        .from('payments')
+        .insert({
+          lease_id,
+          charge_id: charge.id,
+          amount: tenantAmount,
+          paid_by: 'tenant',
+          method: 'zelle',
+          status: 'completed',
+          paid_date: date,
+          notes,
+        })
+        .select('id')
+        .single()
+
+      if (tenantError) {
+        return NextResponse.json({ error: 'Failed to create tenant payment' }, { status: 500 })
+      }
+      paymentIds.push(tenantPayment.id)
+    } else {
+      // Single tenant payment
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          lease_id,
+          charge_id: charge.id,
+          amount: parseFloat(amount),
+          paid_by: 'tenant',
+          method: 'zelle',
+          status: 'completed',
+          paid_date: date,
+          notes,
+        })
+        .select('id')
+        .single()
+
+      if (paymentError) {
+        return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 })
+      }
+      paymentIds.push(payment.id)
     }
 
     return NextResponse.json({
       success: true,
-      payment_id: payment.id,
+      payment_ids: paymentIds,
       charge_id: charge.id,
       charge_month: chargeMonth,
-      charge_created: !charge,
+      charge_auto_created: chargeAutoCreated,
     })
   } catch (err) {
     console.error('match-rent-payment error:', err)
