@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
           amount: t.amount,
           property_id: t.property_id,
           property_name: t.property_name,
+          tenant_id: t.tenant_id,
+          lease_id: t.lease_id,
         })
         continue
       }

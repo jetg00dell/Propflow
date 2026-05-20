@@ -195,6 +195,9 @@ export default function ExpensesPage() {
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [matchingPayment, setMatchingPayment] = useState<string | null>(null)
+  const [matchedPayments, setMatchedPayments] = useState<Set<string>>(new Set())
+  const [matchErrors, setMatchErrors] = useState<Record<string, string>>({})
   const [addDuplicateWarning, setAddDuplicateWarning] = useState<any[]>([])
   const [editDuplicateWarning, setEditDuplicateWarning] = useState<any[]>([])
 
@@ -357,6 +360,36 @@ export default function ExpensesPage() {
       if (res.ok) refreshExpenses()
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function handleMatchRentPayment(match: any) {
+    setMatchingPayment(match.description)
+    setMatchErrors(prev => { const n = { ...prev }; delete n[match.description]; return n })
+    try {
+      const res = await fetch('/api/match-rent-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: match.tenant_id,
+          lease_id: match.lease_id,
+          amount: match.amount,
+          date: match.date,
+          description: match.description,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to match')
+      setMatchedPayments(prev => new Set([...prev, match.description]))
+      setSaveResult((prev: any) => ({
+        ...prev,
+        rentMatches: prev.rentMatches.filter((r: any) => r.description !== match.description),
+        rentMatchCount: (prev.rentMatchCount ?? 1) - 1,
+      }))
+    } catch (e: any) {
+      setMatchErrors(prev => ({ ...prev, [match.description]: e.message }))
+    } finally {
+      setMatchingPayment(null)
     }
   }
 
@@ -720,18 +753,37 @@ export default function ExpensesPage() {
               </p>
             )}
           </div>
-          {saveResult.rentMatches?.length > 0 && (
+          {(saveResult.rentMatches?.length > 0 || matchedPayments.size > 0) && (
             <div className="text-left bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 max-w-lg mx-auto">
               <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits to match in Payments:</div>
-              {saveResult.rentMatches.map((r: any, i: number) => (
-                <div key={i} className="flex justify-between text-sm py-1.5 border-b border-amber-100 last:border-0">
-                  <div>
-                    <span className="text-amber-900">{r.description}</span>
-                    {r.tenant_name && <span className="text-amber-600 text-xs ml-2">· {r.tenant_name}</span>}
+              {saveResult.rentMatches.map((r: any, i: number) => {
+                const isMatching = matchingPayment === r.description
+                const isMatched = matchedPayments.has(r.description)
+                const matchError = matchErrors[r.description]
+                return (
+                  <div key={i} className={`flex items-center justify-between text-sm py-1.5 border-b border-amber-100 last:border-0 gap-3 ${isMatched ? 'opacity-50' : ''}`}>
+                    <div className="min-w-0">
+                      <span className="text-amber-900 truncate">{r.description}</span>
+                      {r.tenant_name && <span className="text-amber-600 text-xs ml-2">· {r.tenant_name}</span>}
+                      {matchError && <div className="text-red-500 text-xs mt-0.5">{matchError}</div>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="font-medium text-green-700">+${r.amount.toFixed(2)}</span>
+                      {isMatched ? (
+                        <span className="text-green-600 text-xs font-medium">✓ Matched</span>
+                      ) : (
+                        <button
+                          onClick={() => handleMatchRentPayment(r)}
+                          disabled={isMatching}
+                          className="bg-[#1C7BC0] text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {isMatching ? 'Matching...' : 'Match to Payments'}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <span className="font-medium text-green-700">+${r.amount.toFixed(2)}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
           <div className="flex gap-3 justify-center">
