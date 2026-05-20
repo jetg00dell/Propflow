@@ -77,6 +77,7 @@ For each transaction return a JSON array. Each item must have exactly these fiel
 Tenant matching rules:
 - If a Zelle or payment description contains a person's name, look it up in the ACTIVE TENANTS list
 - Match on first name, last name, or both
+- When matching a name, try BOTH "First Last" and "Last First" orderings — e.g. "Brown Moses" should match tenant "Moses Brown"
 - If tenant matched, also set property_id and property_name from that tenant's property
 - Christina Bachman = unit 1506, Forest Mangus = unit 1508 — both at 1506-1508 Estrella Avenue
 - If amount is close to a tenant's monthly_rent (within $200), confidence is "high" for rent_payment

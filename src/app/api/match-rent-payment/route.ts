@@ -12,11 +12,13 @@ export async function POST(req: NextRequest) {
 
     // Fallback: resolve lease_id from tenant if not provided
     if (!lease_id && tenant_id) {
-      const { data: leaseLink } = await supabase
+      const { data: leaseLinkData } = await supabase
         .from('lease_tenants')
         .select('lease_id')
         .eq('tenant_id', tenant_id)
-        .single()
+        .limit(1)
+
+      const leaseLink = leaseLinkData?.[0]
 
       if (leaseLink?.lease_id) {
         const { data: activeCheck } = await supabase
