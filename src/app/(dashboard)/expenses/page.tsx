@@ -760,18 +760,21 @@ export default function ExpensesPage() {
                 const isMatching = matchingPayment === r.description
                 const isMatched = matchedPayments.has(r.description)
                 const matchError = matchErrors[r.description]
+                const canAutoMatch = !!(r.lease_id || r.tenant_id)
                 return (
-                  <div key={i} className={`flex items-center justify-between text-sm py-1.5 border-b border-amber-100 last:border-0 gap-3 ${isMatched ? 'opacity-50' : ''}`}>
-                    <div className="min-w-0">
-                      <span className="text-amber-900 truncate">{r.description}</span>
-                      {r.tenant_name && <span className="text-amber-600 text-xs ml-2">· {r.tenant_name}</span>}
-                      {matchError && <div className="text-red-500 text-xs mt-0.5">{matchError}</div>}
+                  <div key={i} className={`flex items-center gap-3 py-2 border-b border-amber-100 last:border-0 ${isMatched ? 'opacity-50' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-amber-900 truncate">{r.description}</p>
+                      {r.tenant_name && <p className="text-xs text-amber-600">{r.tenant_name}</p>}
+                      {matchError && <p className="text-xs text-red-500 mt-0.5">{matchError}</p>}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="font-medium text-green-700">+${r.amount.toFixed(2)}</span>
+                    <div className="text-sm font-medium text-green-700 whitespace-nowrap">
+                      +${r.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex-shrink-0">
                       {isMatched ? (
                         <span className="text-green-600 text-xs font-medium">✓ Matched</span>
-                      ) : (
+                      ) : canAutoMatch ? (
                         <button
                           onClick={() => handleMatchRentPayment(r)}
                           disabled={isMatching}
@@ -779,6 +782,8 @@ export default function ExpensesPage() {
                         >
                           {isMatching ? 'Matching...' : 'Match to Payments'}
                         </button>
+                      ) : (
+                        <span className="text-xs text-amber-600 italic">Match manually in Payments</span>
                       )}
                     </div>
                   </div>
