@@ -125,12 +125,16 @@ export async function POST(req: NextRequest) {
 
     const { data: lease } = await admin
       .from('leases')
-      .select('late_fee_flat')
+      .select('late_fee_flat, end_date')
       .eq('id', charge.lease_id)
       .maybeSingle()
 
+    // Don't prompt to create a next-month charge if the lease ended before that month
+    const leaseEndDate: string | null = (lease as any)?.end_date ?? null
+    const leaseExpired = leaseEndDate !== null && leaseEndDate < nextMonthDate
+
     nextMonthPrompt = {
-      needed: !existing,
+      needed: !existing && !leaseExpired,
       isPartial,
       nextMonth,
       nextMonthDate,
