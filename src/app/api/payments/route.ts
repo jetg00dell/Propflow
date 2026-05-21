@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
   const { data: charge, error: chargeError } = await admin
     .from('rent_charges')
-    .select('lease_id')
+    .select('lease_id, charge_month, ha_amount, tenant_amount, total_due')
     .eq('id', charge_id)
     .single()
 
@@ -22,59 +22,60 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Auto-create next month's charge if this payment fully pays off the current charge
+  // Build nextMonthPrompt — always attempt, errors are silent
+  let nextMonthPrompt: {
+    needed: boolean
+    isPartial: boolean
+    nextMonth: string
+    nextMonthDate: string
+    suggestedCharge: { total_due: number; ha_amount: number; tenant_amount: number; late_fee_flat: number }
+  } | null = null
+
   try {
-    const { data: fullCharge } = await admin
+    const { data: allPayments } = await admin
+      .from('payments')
+      .select('amount')
+      .eq('charge_id', charge_id)
+
+    const totalPaid = (allPayments ?? []).reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
+    const isPartial = totalPaid < (charge.total_due ?? 0)
+
+    // charge_month is stored as YYYY-MM-DD; month field is 1-based in DB
+    const [year, month] = (charge.charge_month as string).split('-').map(Number)
+    const nextDate = new Date(year, month, 1) // JS months are 0-based: month (1-based) → correct next month
+    const nextMonthDate = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-01`
+    const nextMonth = nextDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+
+    const { data: existing } = await admin
       .from('rent_charges')
-      .select('lease_id, charge_month, ha_amount, tenant_amount, total_due')
-      .eq('id', charge_id)
-      .single()
+      .select('id')
+      .eq('lease_id', charge.lease_id)
+      .eq('charge_month', nextMonthDate)
+      .maybeSingle()
 
-    if (fullCharge) {
-      const { data: allPayments } = await admin
-        .from('payments')
-        .select('amount')
-        .eq('charge_id', charge_id)
+    const { data: lease } = await admin
+      .from('leases')
+      .select('late_fee_flat')
+      .eq('id', charge.lease_id)
+      .maybeSingle()
 
-      const totalPaid = (allPayments ?? []).reduce((sum: number, p: any) => sum + (p.amount ?? 0), 0)
+    const lateFeeFlat = (lease as any)?.late_fee_flat ?? 0
 
-      if (totalPaid >= (fullCharge.total_due ?? 0)) {
-        // Advance charge_month by 1 month
-        const [year, month] = (fullCharge.charge_month as string).split('-').map(Number)
-        const nextDate = new Date(year, month, 1) // month is already 1-based from DB, so month+0 = next month
-        const nextMonth = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}-01`
-
-        const { data: existing } = await admin
-          .from('rent_charges')
-          .select('id')
-          .eq('lease_id', fullCharge.lease_id)
-          .eq('charge_month', nextMonth)
-          .maybeSingle()
-
-        if (!existing) {
-          const { error: insertError } = await admin
-            .from('rent_charges')
-            .insert({
-              lease_id: fullCharge.lease_id,
-              charge_month: nextMonth,
-              ha_amount: fullCharge.ha_amount ?? 0,
-              tenant_amount: fullCharge.tenant_amount ?? 0,
-              total_due: fullCharge.total_due ?? 0,
-              notes: null,
-            })
-
-          if (insertError) {
-            // 23505 = already exists (race condition), silently ignore
-            if ((insertError as any).code !== '23505') {
-              console.error('[payments] auto-create next charge error:', insertError)
-            }
-          }
-        }
-      }
+    nextMonthPrompt = {
+      needed: !existing,
+      isPartial,
+      nextMonth,
+      nextMonthDate,
+      suggestedCharge: {
+        total_due: charge.total_due ?? 0,
+        ha_amount: charge.ha_amount ?? 0,
+        tenant_amount: charge.tenant_amount ?? 0,
+        late_fee_flat: lateFeeFlat,
+      },
     }
-  } catch (autoErr) {
-    console.error('[payments] auto-create next charge exception:', autoErr)
+  } catch (err) {
+    console.error('[payments] nextMonthPrompt error:', err)
   }
 
-  return NextResponse.json({ payment: data })
+  return NextResponse.json({ payment: data, nextMonthPrompt })
 }

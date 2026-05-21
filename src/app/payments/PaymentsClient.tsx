@@ -6,6 +6,14 @@ import { CheckCircle2, XCircle, Plus, ChevronDown, ChevronRight, Pencil, Trash2 
 import { createClient } from '@/lib/supabase/client'
 import RecordRentPaymentModal from '@/components/RecordRentPaymentModal'
 
+type NextMonthPrompt = {
+  needed: boolean
+  isPartial: boolean
+  nextMonth: string
+  nextMonthDate: string
+  suggestedCharge: { total_due: number; ha_amount: number; tenant_amount: number; late_fee_flat: number }
+}
+
 type Payment = {
   id: string
   charge_id: string
@@ -130,6 +138,12 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [step, setStep] = useState<'form' | 'next-month'>('form')
+  const [nextMonthData, setNextMonthData] = useState<NextMonthPrompt | null>(null)
+  const [lateFee, setLateFee] = useState('0')
+  const [nextNotes, setNextNotes] = useState('')
+  const [creating, setCreating] = useState(false)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
@@ -140,13 +154,126 @@ function RecordPaymentModal({ charge, onClose, onSaved }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ charge_id: charge.id, amount: parseFloat(amount), paid_by: paidBy, method, paid_date: paidDate, notes: notes || null }),
       })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to save')
-      onSaved()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed to save')
+
+      const prompt = data.nextMonthPrompt as NextMonthPrompt | null
+      if (prompt?.needed) {
+        if (!prompt.isPartial) {
+          // Fully paid — silently create next month charge then close
+          const supabase = createClient()
+          await supabase.from('rent_charges').insert({
+            lease_id: charge.lease_id,
+            charge_month: prompt.nextMonthDate,
+            ha_amount: prompt.suggestedCharge.ha_amount,
+            tenant_amount: prompt.suggestedCharge.tenant_amount,
+            total_due: prompt.suggestedCharge.total_due,
+            notes: null,
+          })
+          onSaved()
+        } else {
+          // Partial payment — ask about next month charge
+          setLateFee(String(prompt.suggestedCharge.late_fee_flat ?? 0))
+          setNextMonthData(prompt)
+          setStep('next-month')
+        }
+      } else {
+        onSaved()
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {
       setSaving(false)
     }
+  }
+
+  async function handleCreateNextCharge() {
+    if (!nextMonthData) return
+    setCreating(true)
+    setError(null)
+    try {
+      const fee = parseFloat(lateFee) || 0
+      const supabase = createClient()
+      const { error: insertErr } = await supabase.from('rent_charges').insert({
+        lease_id: charge.lease_id,
+        charge_month: nextMonthData.nextMonthDate,
+        ha_amount: nextMonthData.suggestedCharge.ha_amount,
+        tenant_amount: nextMonthData.suggestedCharge.tenant_amount,
+        total_due: nextMonthData.suggestedCharge.total_due + fee,
+        notes: nextNotes || null,
+      })
+      if (insertErr && (insertErr as any).code !== '23505') throw new Error(insertErr.message)
+      onSaved()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  // Remaining balances for step-2 display (accounts for the payment just submitted)
+  const haPaidBefore = charge.payments.filter(p => p.paid_by === 'ha').reduce((s, p) => s + p.amount, 0)
+  const tenantPaidBefore = charge.payments.filter(p => p.paid_by === 'tenant').reduce((s, p) => s + p.amount, 0)
+  const newHa = paidBy === 'ha' ? parseFloat(amount) || 0 : 0
+  const newTenant = paidBy === 'tenant' ? parseFloat(amount) || 0 : 0
+  const haBalance = Math.max(0, charge.ha_amount - (haPaidBefore + newHa))
+  const tenantBalance = Math.max(0, charge.tenant_amount - (tenantPaidBefore + newTenant))
+
+  if (step === 'next-month' && nextMonthData) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <h2 className="text-base font-semibold text-[#1A2B4A] mb-1">Create {nextMonthData.nextMonth} Charge?</h2>
+          <p className="text-xs text-gray-400 mb-5">{charge.property_name} — Unit {charge.unit_number}</p>
+          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-4">
+            <p className="text-xs font-medium text-amber-800 mb-1">This month is not fully paid:</p>
+            {haBalance > 0 && <p className="text-xs text-amber-700">HA balance: {fmt(haBalance)} remaining</p>}
+            {tenantBalance > 0 && <p className="text-xs text-amber-700">Tenant balance: {fmt(tenantBalance)} remaining</p>}
+          </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">
+                Late Fee <span className="text-gray-300 font-normal">(set to $0 to waive)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={lateFee}
+                onChange={e => setLateFee(e.target.value)}
+                className={inputCls}
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 block mb-1">
+                Notes <span className="text-gray-300 font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={nextNotes}
+                onChange={e => setNextNotes(e.target.value)}
+                rows={2}
+                className={`${inputCls} resize-none`}
+                placeholder="e.g. HA short — waiving late fee, following up"
+              />
+            </div>
+            <div className="flex justify-between items-center px-3 py-2 bg-[#F0F7FF] rounded-lg border border-[#1C7BC0]/20">
+              <span className="text-xs font-medium text-gray-500">Total Due ({nextMonthData.nextMonth})</span>
+              <span className="text-sm font-semibold text-[#1A2B4A]">
+                {fmt(nextMonthData.suggestedCharge.total_due + (parseFloat(lateFee) || 0))}
+              </span>
+            </div>
+            {error && <p className="text-xs text-red-600">{error}</p>}
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onSaved} className={btnSecondary}>Skip for now</button>
+              <button type="button" onClick={handleCreateNextCharge} disabled={creating} className={btnPrimary}>
+                {creating ? 'Creating…' : 'Create Charge'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -193,21 +320,28 @@ function EditChargeModal({ charge, onClose, onSaved }: {
 }) {
   const [haAmount, setHaAmount] = useState(String(charge.ha_amount))
   const [tenantAmount, setTenantAmount] = useState(String(charge.tenant_amount))
+  // Derive existing adjustment (late fee baked into total_due)
+  const [lateFee, setLateFee] = useState(
+    String(Math.max(0, Math.round((charge.total_due - charge.ha_amount - charge.tenant_amount) * 100) / 100))
+  )
   const [notes, setNotes] = useState(charge.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const ha = parseFloat(haAmount) || 0
+  const tenant = parseFloat(tenantAmount) || 0
+  const fee = parseFloat(lateFee) || 0
+  const totalDue = ha + tenant + fee
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
     setError(null)
     try {
-      const ha = parseFloat(haAmount) || 0
-      const tenant = parseFloat(tenantAmount) || 0
       const res = await fetch(`/api/rent-charges/${charge.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ha_amount: ha, tenant_amount: tenant, total_due: ha + tenant, notes: notes || null }),
+        body: JSON.stringify({ ha_amount: ha, tenant_amount: tenant, total_due: totalDue, notes: notes || null }),
       })
       if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to save')
       onSaved()
@@ -233,6 +367,17 @@ function EditChargeModal({ charge, onClose, onSaved }: {
               <label className="text-xs font-medium text-gray-500 block mb-1">Tenant Amount</label>
               <input type="number" min="0" step="0.01" value={tenantAmount} onChange={e => setTenantAmount(e.target.value)} className={inputCls} placeholder="0.00" />
             </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 block mb-1">
+              Late Fee / Adjustment
+              <span className="ml-1 text-gray-300 font-normal">(set to $0 to waive)</span>
+            </label>
+            <input type="number" min="0" step="0.01" value={lateFee} onChange={e => setLateFee(e.target.value)} className={inputCls} placeholder="0.00" />
+          </div>
+          <div className="flex justify-between items-center px-3 py-2 bg-[#F0F7FF] rounded-lg border border-[#1C7BC0]/20">
+            <span className="text-xs font-medium text-gray-500">Total Due</span>
+            <span className="text-sm font-semibold text-[#1A2B4A]">{fmt(totalDue)}</span>
           </div>
           <div>
             <label className="text-xs font-medium text-gray-500 block mb-1">Notes <span className="text-gray-300 font-normal">(optional)</span></label>
