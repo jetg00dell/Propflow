@@ -195,9 +195,6 @@ export default function ExpensesPage() {
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [matchingPayment, setMatchingPayment] = useState<string | null>(null)
-  const [matchedPayments, setMatchedPayments] = useState<Set<string>>(new Set())
-  const [matchErrors, setMatchErrors] = useState<Record<string, string>>({})
   const [addDuplicateWarning, setAddDuplicateWarning] = useState<any[]>([])
   const [editDuplicateWarning, setEditDuplicateWarning] = useState<any[]>([])
 
@@ -360,36 +357,6 @@ export default function ExpensesPage() {
       if (res.ok) refreshExpenses()
     } finally {
       setDeletingId(null)
-    }
-  }
-
-  async function handleMatchRentPayment(match: any) {
-    setMatchingPayment(match.description)
-    setMatchErrors(prev => { const n = { ...prev }; delete n[match.description]; return n })
-    try {
-      const res = await fetch('/api/match-rent-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenant_id: match.tenant_id,
-          lease_id: match.lease_id,
-          amount: match.amount,
-          date: match.date,
-          description: match.description,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to match')
-      setMatchedPayments(prev => new Set([...prev, match.description]))
-      setSaveResult((prev: any) => ({
-        ...prev,
-        rentMatches: prev.rentMatches.filter((r: any) => r.description !== match.description),
-        rentMatchCount: (prev.rentMatchCount ?? 1) - 1,
-      }))
-    } catch (e: any) {
-      setMatchErrors(prev => ({ ...prev, [match.description]: e.message }))
-    } finally {
-      setMatchingPayment(null)
     }
   }
 
@@ -749,36 +716,20 @@ export default function ExpensesPage() {
             <p>{saveResult.savedExpenses} expense{saveResult.savedExpenses !== 1 ? 's' : ''} saved</p>
             {saveResult.rentMatchCount > 0 && (
               <p className="text-amber-600 font-medium">
-                {saveResult.rentMatchCount} rent deposit{saveResult.rentMatchCount !== 1 ? 's' : ''} need to be matched in the Payments page
+                {saveResult.rentMatchCount} rent deposit{saveResult.rentMatchCount !== 1 ? 's' : ''} received — record these in the Payments page
               </p>
             )}
           </div>
-          {(saveResult.rentMatches?.length > 0 || matchedPayments.size > 0) && (
+          {saveResult.rentMatches?.length > 0 && (
             <div className="text-left bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 max-w-lg mx-auto">
-              <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits to match in Payments:</div>
-              {saveResult.rentMatches?.map((r: any, i: number) => (
-                <div key={i} className={`flex items-center gap-3 py-2 border-b border-amber-100 last:border-0 ${matchedPayments.has(r.description) ? 'opacity-50' : ''}`}>
+              <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits received — enter these manually in the Payments page:</div>
+              {saveResult.rentMatches.map((r: any, i: number) => (
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-amber-100 last:border-0">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-amber-900 truncate">{r.description}</p>
                     {r.tenant_name && <p className="text-xs text-amber-600">{r.tenant_name}</p>}
-                    {matchErrors[r.description] && <p className="text-xs text-red-500">{matchErrors[r.description]}</p>}
                   </div>
                   <div className="text-sm font-medium text-green-700 whitespace-nowrap">+${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                  <div className="flex-shrink-0 w-36 text-right">
-                    {matchedPayments.has(r.description) ? (
-                      <span className="text-xs text-green-600 font-medium">✓ Matched</span>
-                    ) : !r.lease_id && !r.tenant_id ? (
-                      <span className="text-xs text-amber-600 italic">Match manually in Payments</span>
-                    ) : (
-                      <button
-                        onClick={() => handleMatchRentPayment(r)}
-                        disabled={matchingPayment === r.description}
-                        className="bg-[#1C7BC0] text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {matchingPayment === r.description ? 'Matching...' : 'Match to Payments'}
-                      </button>
-                    )}
-                  </div>
                 </div>
               ))}
             </div>

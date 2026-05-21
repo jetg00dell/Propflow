@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python -m json.tool)",
       "Bash(xargs grep *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(Remove-Item *)"
     ]
   }
 }
