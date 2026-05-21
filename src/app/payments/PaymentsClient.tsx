@@ -4,6 +4,7 @@ import { Fragment, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, XCircle, Plus, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import RecordRentPaymentModal from '@/components/RecordRentPaymentModal'
 
 type Payment = {
   id: string
@@ -467,6 +468,7 @@ export default function PaymentsClient({ charges, leases }: {
   const [editPayment, setEditPayment] = useState<Payment | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [confirmDeleteChargeId, setConfirmDeleteChargeId] = useState<string | null>(null)
+  const [standaloneRecord, setStandaloneRecord] = useState(false)
 
   const now = new Date()
   const currentMonthPrefix = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -552,6 +554,10 @@ export default function PaymentsClient({ charges, leases }: {
               <option key={m} value={m}>{formatMonth(`${m}-01`)}</option>
             ))}
           </select>
+          <button onClick={() => setStandaloneRecord(true)}
+            className="flex items-center gap-2 border border-[#1C7BC0] text-[#1C7BC0] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#F0F7FF] transition-colors">
+            Record Payment
+          </button>
           <button onClick={() => setAddChargeOpen(true)}
             className="flex items-center gap-2 bg-[#1C7BC0] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1C7BC0]/90 transition-colors">
             <Plus size={15} /> Add Charge
@@ -706,6 +712,13 @@ export default function PaymentsClient({ charges, leases }: {
       {editCharge && <EditChargeModal charge={editCharge} onClose={() => setEditCharge(null)} onSaved={handleSaved} />}
       {editPayment && <EditPaymentModal payment={editPayment} onClose={() => setEditPayment(null)} onSaved={handleSaved} />}
       {addChargeOpen && <AddChargeModal leases={leases} onClose={() => setAddChargeOpen(false)} onSaved={handleSaved} />}
+      {standaloneRecord && (
+        <RecordRentPaymentModal
+          leases={leases}
+          onClose={() => setStandaloneRecord(false)}
+          onSaved={() => { setStandaloneRecord(false); handleSaved() }}
+        />
+      )}
     </div>
   )
 }

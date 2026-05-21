@@ -4,7 +4,8 @@
       "Bash(python -m json.tool)",
       "Bash(xargs grep *)",
       "Bash(node *)",
-      "Bash(Remove-Item *)"
+      "Bash(Remove-Item *)",
+      "Bash(npm run *)"
     ]
   }
 }

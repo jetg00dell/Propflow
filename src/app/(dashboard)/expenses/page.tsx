@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, Fragment } from 'react'
+import RecordRentPaymentModal from '@/components/RecordRentPaymentModal'
 
 type Tenant = {
   id: string
@@ -122,6 +123,8 @@ export default function ExpensesPage() {
   const [error, setError] = useState('')
   const [saveResult, setSaveResult] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<'review' | 'all'>('review')
+  const [activeRecordModal, setActiveRecordModal] = useState<any>(null)
+  const [recordedDeposits, setRecordedDeposits] = useState<Set<string>>(new Set())
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -722,17 +725,54 @@ export default function ExpensesPage() {
           </div>
           {saveResult.rentMatches?.length > 0 && (
             <div className="text-left bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 max-w-lg mx-auto">
-              <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits received — enter these manually in the Payments page:</div>
-              {saveResult.rentMatches.map((r: any, i: number) => (
-                <div key={i} className="flex items-center gap-3 py-2 border-b border-amber-100 last:border-0">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-amber-900 truncate">{r.description}</p>
-                    {r.tenant_name && <p className="text-xs text-amber-600">{r.tenant_name}</p>}
+              <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits received — record these in the Payments page:</div>
+              {saveResult.rentMatches.map((r: any, i: number) => {
+                const isRecorded = recordedDeposits.has(r.description)
+                const chargeMonth = r.date ? r.date.slice(0, 7) : undefined
+                const canRecord = !!(r.lease_id || r.tenant_id)
+                return (
+                  <div key={i} className={`flex items-center gap-3 py-2 border-b border-amber-100 last:border-0 ${isRecorded ? 'opacity-60' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-amber-900 truncate">{r.description}</p>
+                      {r.property_name && <p className="text-xs text-amber-600">{r.property_name}</p>}
+                    </div>
+                    <div className="text-sm font-medium text-green-700 whitespace-nowrap">
+                      +${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </div>
+                    <div className="flex-shrink-0">
+                      {isRecorded ? (
+                        <span className="text-xs text-green-600 font-medium">✓ Recorded</span>
+                      ) : canRecord ? (
+                        <button
+                          onClick={() => setActiveRecordModal(r)}
+                          className="bg-[#1C7BC0] text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 whitespace-nowrap"
+                        >
+                          Record Payment
+                        </button>
+                      ) : (
+                        <span className="text-xs text-amber-600 italic">Enter manually</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm font-medium text-green-700 whitespace-nowrap">+${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+          )}
+          {activeRecordModal && (
+            <RecordRentPaymentModal
+              prefilledLeaseId={activeRecordModal.lease_id}
+              prefilledTitle={activeRecordModal.property_name ?? activeRecordModal.description}
+              prefilledChargeMonth={activeRecordModal.date?.slice(0, 7)}
+              prefilledAmount={String(activeRecordModal.amount)}
+              prefilledPaidDate={activeRecordModal.date}
+              prefilledMethod="zelle"
+              prefilledNotes={activeRecordModal.description}
+              onClose={() => setActiveRecordModal(null)}
+              onSaved={() => {
+                setRecordedDeposits(prev => new Set([...prev, activeRecordModal.description]))
+                setActiveRecordModal(null)
+              }}
+            />
           )}
           <div className="flex gap-3 justify-center">
             <button

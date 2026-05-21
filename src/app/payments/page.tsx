@@ -10,20 +10,41 @@ export default async function PaymentsPage() {
 
   const admin = createAdminClient()
 
-  // Step 1: active leases — select only columns that exist on the leases table.
-  // ha_amount/tenant_amount live on rent_charges, not leases; monthly_rent is the
-  // lease-level default used for AddChargeModal auto-populate.
-  const { data: leases, error: leasesError } = await admin
+  // Step 1: all rent charges — drive the lease set from charges, not from lease status.
+  // This ensures expired leases (e.g. Slacks in Jan 2026) appear when their month is selected.
+  const { data: charges, error: chargesError } = await admin
+    .from('rent_charges')
+    .select('id, lease_id, charge_month, ha_amount, tenant_amount, total_due, notes')
+    .order('charge_month', { ascending: false })
+
+  if (chargesError) console.error('[payments] rent_charges query error:', chargesError)
+
+  const chargeLeaseIds = [...new Set((charges ?? []).map((c: any) => c.lease_id).filter(Boolean))]
+
+  // Step 2: leases referenced by charges (any status) + active leases (for modal selectors)
+  const { data: chargeLeases, error: chargeLeasesError } = chargeLeaseIds.length > 0
+    ? await admin.from('leases').select('id, unit_id, monthly_rent').in('id', chargeLeaseIds)
+    : { data: [], error: null }
+
+  if (chargeLeasesError) console.error('[payments] charge leases query error:', chargeLeasesError)
+
+  const { data: activeLeases, error: activeLeasesError } = await admin
     .from('leases')
     .select('id, unit_id, monthly_rent')
     .eq('status', 'active')
 
-  if (leasesError) console.error('[payments] leases query error:', leasesError)
+  if (activeLeasesError) console.error('[payments] active leases query error:', activeLeasesError)
 
-  const leaseIds = (leases ?? []).map((l: any) => l.id)
-  const unitIds = [...new Set((leases ?? []).map((l: any) => l.unit_id).filter(Boolean))]
+  // Merge charge leases + active leases (deduplicated) for unit/property/tenant lookups
+  const leasesMap = new Map<string, any>()
+  for (const l of (chargeLeases ?? [])) leasesMap.set(l.id, l)
+  for (const l of (activeLeases ?? [])) leasesMap.set(l.id, l)
+  const allLeases = [...leasesMap.values()]
 
-  // Step 2: units
+  const leaseIds = allLeases.map((l: any) => l.id)
+  const unitIds = [...new Set(allLeases.map((l: any) => l.unit_id).filter(Boolean))]
+
+  // Step 3: units
   const { data: units, error: unitsError } = unitIds.length > 0
     ? await admin.from('units').select('id, unit_number, property_id').in('id', unitIds)
     : { data: [], error: null }
@@ -32,14 +53,14 @@ export default async function PaymentsPage() {
 
   const propertyIds = [...new Set((units ?? []).map((u: any) => u.property_id).filter(Boolean))]
 
-  // Step 3: properties
+  // Step 4: properties
   const { data: properties, error: propertiesError } = propertyIds.length > 0
     ? await admin.from('properties').select('id, name').in('id', propertyIds)
     : { data: [], error: null }
 
   if (propertiesError) console.error('[payments] properties query error:', propertiesError)
 
-  // Step 4: primary tenants
+  // Step 5: tenants (covers both charge leases and active leases)
   const { data: leaseTenants, error: leaseTenantsError } = leaseIds.length > 0
     ? await admin.from('lease_tenants').select('lease_id, tenant_id, is_primary').in('lease_id', leaseIds)
     : { data: [], error: null }
@@ -54,20 +75,9 @@ export default async function PaymentsPage() {
 
   if (tenantsError) console.error('[payments] tenants query error:', tenantsError)
 
-  // Step 5: rent charges
-  const { data: charges, error: chargesError } = leaseIds.length > 0
-    ? await admin
-        .from('rent_charges')
-        .select('id, lease_id, charge_month, ha_amount, tenant_amount, total_due, notes')
-        .in('lease_id', leaseIds)
-        .order('charge_month', { ascending: false })
-    : { data: [], error: null }
-
-  if (chargesError) console.error('[payments] rent_charges query error:', chargesError)
-
+  // Step 6: payments for all charges
   const chargeIds = (charges ?? []).map((c: any) => c.id)
 
-  // Step 6: payments for those charges
   const { data: payments, error: paymentsError } = chargeIds.length > 0
     ? await admin
         .from('payments')
@@ -81,7 +91,7 @@ export default async function PaymentsPage() {
   const unitMap: Record<string, any> = Object.fromEntries((units ?? []).map((u: any) => [u.id, u]))
   const propertyMap: Record<string, any> = Object.fromEntries((properties ?? []).map((p: any) => [p.id, p]))
   const tenantMap: Record<string, any> = Object.fromEntries((tenants ?? []).map((t: any) => [t.id, t]))
-  const leaseUnitMap: Record<string, string> = Object.fromEntries((leases ?? []).map((l: any) => [l.id, l.unit_id]))
+  const leaseUnitMap: Record<string, string> = Object.fromEntries(allLeases.map((l: any) => [l.id, l.unit_id]))
 
   const primaryTenantByLease: Record<string, any> = {}
   for (const lt of (leaseTenants ?? [])) {
@@ -117,7 +127,7 @@ export default async function PaymentsPage() {
     }
   })
 
-  const enrichedLeases = (leases ?? []).map((l: any) => {
+  const enrichedLeases = (activeLeases ?? []).map((l: any) => {
     const unit = unitMap[l.unit_id]
     const property = unit ? propertyMap[unit.property_id] : null
     const tenant = primaryTenantByLease[l.id]
