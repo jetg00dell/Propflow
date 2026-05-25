@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, Fragment } from 'react'
 import RecordRentPaymentModal from '@/components/RecordRentPaymentModal'
+import type { ModalLease } from '@/components/RecordRentPaymentModal'
+import { createClient } from '@/lib/supabase/client'
 
 type Tenant = {
   id: string
@@ -125,6 +127,10 @@ export default function ExpensesPage() {
   const [activeTab, setActiveTab] = useState<'review' | 'all'>('review')
   const [activeRecordModal, setActiveRecordModal] = useState<any>(null)
   const [recordedDeposits, setRecordedDeposits] = useState<Set<string>>(new Set())
+  const [standaloneModalOpen, setStandaloneModalOpen] = useState(false)
+  const [standaloneLeases, setStandaloneLeases] = useState<ModalLease[] | null>(null)
+  const [standaloneDeposit, setStandaloneDeposit] = useState<any>(null)
+  const [loadingLeases, setLoadingLeases] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [expenses, setExpenses] = useState<Expense[]>([])
@@ -164,6 +170,47 @@ export default function ExpensesPage() {
       }
     } finally {
       setExpensesLoading(false)
+    }
+  }
+
+  function depositKey(r: any): string {
+    return `${r.lease_id ?? 'none'}-${r.date}-${r.amount}`
+  }
+
+  async function openStandaloneModal(deposit: any) {
+    setStandaloneDeposit(deposit)
+    if (standaloneLeases !== null) {
+      setStandaloneModalOpen(true)
+      return
+    }
+    setLoadingLeases(true)
+    try {
+      const supabase = createClient()
+      const { data: raw } = await supabase
+        .from('leases')
+        .select('id, monthly_rent, units(unit_number, properties(name)), lease_tenants(is_primary, tenants(first_name, last_name))')
+        .eq('status', 'active')
+      const leaseList: ModalLease[] = (raw ?? []).map((l: any) => {
+        const unit = l.units
+        const prop = unit?.properties
+        const lts: any[] = l.lease_tenants ?? []
+        const primary = lts.find((lt: any) => lt.is_primary) ?? lts[0]
+        const t = primary?.tenants
+        return {
+          id: l.id,
+          property_name: prop?.name ?? null,
+          unit_number: unit?.unit_number ?? null,
+          tenant_name: t ? `${t.first_name} ${t.last_name}` : null,
+          monthly_rent: l.monthly_rent ?? null,
+        }
+      })
+      setStandaloneLeases(leaseList)
+      setStandaloneModalOpen(true)
+    } catch {
+      setStandaloneLeases([])
+      setStandaloneModalOpen(true)
+    } finally {
+      setLoadingLeases(false)
     }
   }
 
@@ -724,33 +771,44 @@ export default function ExpensesPage() {
             )}
           </div>
           {saveResult.rentMatches?.length > 0 && (
-            <div className="text-left bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 max-w-lg mx-auto">
-              <div className="text-xs font-medium text-amber-700 mb-3">Rent deposits received — record these in the Payments page:</div>
-              {saveResult.rentMatches.map((r: any, i: number) => {
-                const isRecorded = recordedDeposits.has(r.description)
-                const chargeMonth = r.date ? r.date.slice(0, 7) : undefined
-                const canRecord = !!(r.lease_id || r.tenant_id)
+            <div className="text-left bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 max-w-2xl mx-auto">
+              <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">
+                Rent deposits — record payments
+              </div>
+              {saveResult.rentMatches.map((r: any) => {
+                const key = depositKey(r)
+                const isRecorded = recordedDeposits.has(key)
+                const canRecord = !!r.lease_id
                 return (
-                  <div key={i} className={`flex items-center gap-3 py-2 border-b border-amber-100 last:border-0 ${isRecorded ? 'opacity-60' : ''}`}>
+                  <div key={key} className={`flex items-center gap-4 py-2.5 border-b border-amber-100 last:border-0 ${isRecorded ? 'opacity-50' : ''}`}>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-amber-900 truncate">{r.description}</p>
-                      {r.property_name && <p className="text-xs text-amber-600">{r.property_name}</p>}
+                      <p className="text-sm font-medium text-[#1A2B4A] truncate">{r.description}</p>
+                      {r.property_name && <p className="text-xs text-amber-700">{r.property_name}</p>}
                     </div>
-                    <div className="text-sm font-medium text-green-700 whitespace-nowrap">
+                    <div className="text-xs text-gray-400 whitespace-nowrap">
+                      {r.date ? formatDate(r.date) : ''}
+                    </div>
+                    <div className="text-sm font-semibold text-green-700 whitespace-nowrap w-20 text-right">
                       +${Number(r.amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 w-36 text-right">
                       {isRecorded ? (
-                        <span className="text-xs text-green-600 font-medium">✓ Recorded</span>
+                        <span className="text-xs text-green-600 font-semibold">✓ Recorded</span>
                       ) : canRecord ? (
                         <button
                           onClick={() => setActiveRecordModal(r)}
-                          className="bg-[#1C7BC0] text-white text-xs px-3 py-1.5 rounded-lg hover:bg-blue-700 whitespace-nowrap"
+                          className="border border-[#1C7BC0] text-[#1C7BC0] text-xs px-3 py-1.5 rounded-lg hover:bg-[#F0F7FF] whitespace-nowrap transition-colors"
                         >
                           Record Payment
                         </button>
                       ) : (
-                        <span className="text-xs text-amber-600 italic">Enter manually</span>
+                        <button
+                          onClick={() => openStandaloneModal(r)}
+                          disabled={loadingLeases && standaloneDeposit === r}
+                          className="border border-gray-300 text-gray-500 text-xs px-3 py-1.5 rounded-lg hover:bg-gray-50 whitespace-nowrap transition-colors disabled:opacity-50"
+                        >
+                          {loadingLeases && standaloneDeposit === r ? 'Loading…' : 'Enter manually'}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -769,8 +827,21 @@ export default function ExpensesPage() {
               prefilledNotes={activeRecordModal.description}
               onClose={() => setActiveRecordModal(null)}
               onSaved={() => {
-                setRecordedDeposits(prev => new Set([...prev, activeRecordModal.description]))
+                setRecordedDeposits(prev => new Set([...prev, depositKey(activeRecordModal)]))
                 setActiveRecordModal(null)
+              }}
+            />
+          )}
+          {standaloneModalOpen && standaloneLeases !== null && (
+            <RecordRentPaymentModal
+              leases={standaloneLeases}
+              onClose={() => { setStandaloneModalOpen(false); setStandaloneDeposit(null) }}
+              onSaved={() => {
+                if (standaloneDeposit) {
+                  setRecordedDeposits(prev => new Set([...prev, depositKey(standaloneDeposit)]))
+                }
+                setStandaloneModalOpen(false)
+                setStandaloneDeposit(null)
               }}
             />
           )}
