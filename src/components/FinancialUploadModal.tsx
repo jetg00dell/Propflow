@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 type ExtractedData = {
   mortgage_payment: number | null
@@ -99,7 +98,6 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
 
   async function handleSave() {
     setStep('saving')
-    const supabase = createClient()
 
     const updatePayload: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(form)) {
@@ -124,21 +122,27 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
       updatePayload.mortgage_balance_date = new Date().toISOString().split('T')[0]
     }
 
-    const { error } = await supabase
-      .from('properties')
-      .update(updatePayload)
-      .eq('id', propertyId)
-
-    if (error) {
-      setErrorMsg(error.message)
+    try {
+      const res = await fetch(`/api/properties/${propertyId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? 'Save failed')
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Save failed')
       setStep('error')
-    } else {
-      setStep('done')
-      setTimeout(() => {
-        onSaved()
-        onClose()
-      }, 1200)
+      return
     }
+
+    setStep('done')
+    setTimeout(() => {
+      onSaved()
+      onClose()
+    }, 1200)
   }
 
   function updateField(key: string, value: string) {
