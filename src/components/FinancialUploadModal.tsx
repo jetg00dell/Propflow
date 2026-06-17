@@ -58,6 +58,7 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
   const [form, setForm] = useState<Partial<ExtractedData>>(currentData ?? {})
   const [extractedFields, setExtractedFields] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
+  const lenderRef = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
     setFileName(file.name)
@@ -113,19 +114,15 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
       }
     }
 
-    console.log('form.lender value at save time:', form.lender)
-    console.log('full form state at save time:', JSON.stringify(form))
-
-    if (form.lender !== null && form.lender !== undefined && form.lender !== '') {
-      updatePayload['mortgage_lender'] = form.lender
+    const lenderValue = lenderRef.current?.value ?? ''
+    if (lenderValue) {
+      updatePayload['mortgage_lender'] = lenderValue
     }
 
     // If a mortgage balance was saved, record today as the confirmed date
     if (updatePayload.mortgage_balance) {
       updatePayload.mortgage_balance_date = new Date().toISOString().split('T')[0]
     }
-
-    console.log('updatePayload:', JSON.stringify(updatePayload))
 
     const { error } = await supabase
       .from('properties')
@@ -230,9 +227,11 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
                         )}
                       </label>
                       <input
+                        ref={key === 'lender' ? lenderRef : undefined}
                         type="text"
-                        value={val !== null && val !== undefined ? String(val) : ''}
-                        onChange={(e) => updateField(key, e.target.value)}
+                        defaultValue={key === 'lender' ? (val !== null && val !== undefined ? String(val) : '') : undefined}
+                        value={key === 'lender' ? undefined : (val !== null && val !== undefined ? String(val) : '')}
+                        onChange={key === 'lender' ? undefined : (e) => updateField(key, e.target.value)}
                         placeholder={label}
                         className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#1C7BC0] text-[#1A2B4A]"
                       />
