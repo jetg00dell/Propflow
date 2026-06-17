@@ -122,6 +122,8 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
       updatePayload.mortgage_balance_date = new Date().toISOString().split('T')[0]
     }
 
+    console.log('updatePayload:', JSON.stringify(updatePayload))
+
     const { error } = await supabase
       .from('properties')
       .update(updatePayload)
