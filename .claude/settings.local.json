@@ -5,7 +5,14 @@
       "Bash(xargs grep *)",
       "Bash(node *)",
       "Bash(Remove-Item *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Read(//c/Users/jetgo/goodell-dashboard/**)",
+      "Bash(firebase deploy *)",
+      "Bash(firebase hosting:sites:list)",
+      "Bash(firebase login *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)"
     ]
   }
 }
