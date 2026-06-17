@@ -77,7 +77,7 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
       mortgage_payment: number | null
       mortgage_balance: number | null
       mortgage_rate: number | null
-      mortgage_lender: string | null
+      lender: string | null
       property_tax: number | null
       insurance_premium: number | null
     }
@@ -239,7 +239,7 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                         mortgage_payment: p.mortgagePayment,
                         mortgage_balance: p.mortgageBalance,
                         mortgage_rate: p.mortgageRate,
-                        mortgage_lender: p.mortgageLender ?? null,
+                        lender: p.mortgageLender ?? null,
                         property_tax: p.propertyTax ? p.propertyTax * 12 : null,
                         insurance_premium: p.insurance ? p.insurance * 12 : null,
                       } }) }}

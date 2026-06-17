@@ -7,7 +7,7 @@ type ExtractedData = {
   mortgage_payment: number | null
   mortgage_balance: number | null
   mortgage_rate: number | null
-  mortgage_lender: string | null
+  lender: string | null
   property_tax: number | null
   insurance_premium: number | null
   electric_provider: string | null
@@ -39,7 +39,7 @@ const FIELD_LABELS: Record<string, string> = {
   mortgage_payment: 'Monthly mortgage payment ($)',
   mortgage_balance: 'Mortgage balance ($)',
   mortgage_rate: 'Mortgage rate (%)',
-  mortgage_lender: 'Lender',
+  lender: 'Lender',
   property_tax: 'Annual property tax ($)',
   insurance_premium: 'Annual insurance premium ($)',
   electric_provider: 'Electric provider',
@@ -104,12 +104,17 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
     for (const [k, v] of Object.entries(form)) {
       if (v === '' || v === null || v === undefined) continue
       const numericFields = ['mortgage_payment', 'mortgage_balance', 'mortgage_rate', 'property_tax', 'insurance_premium']
+      if (k === 'lender') continue  // handled explicitly below
       if (numericFields.includes(k)) {
         const n = parseFloat(String(v))
         if (!isNaN(n)) updatePayload[k] = n
       } else {
         updatePayload[k] = v
       }
+    }
+
+    if (form.lender !== null && form.lender !== undefined && form.lender !== '') {
+      updatePayload['mortgage_lender'] = form.lender
     }
 
     // If a mortgage balance was saved, record today as the confirmed date
