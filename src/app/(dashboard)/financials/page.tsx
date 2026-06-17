@@ -106,7 +106,7 @@ export default async function FinancialsPage() {
       mortgageBalance,
       mortgageBalanceConfirmedDate,
       mortgageRate,
-      mortgageLender: p.mortgage_lender ?? null,
+      lender: p.mortgage_lender ?? null,
       propertyTax,
       insurance,
       hoaFee,

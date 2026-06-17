@@ -15,7 +15,7 @@ type PropertyFinancial = {
   mortgagePayment: number
   mortgageBalance: number
   mortgageRate: number
-  mortgageLender: string | null
+  lender: string | null
   propertyTax: number
   insurance: number
   hoaFee: number
@@ -239,7 +239,7 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                         mortgage_payment: p.mortgagePayment,
                         mortgage_balance: p.mortgageBalance,
                         mortgage_rate: p.mortgageRate,
-                        lender: p.mortgageLender ?? null,
+                        lender: p.lender ?? null,
                         property_tax: p.propertyTax ? p.propertyTax * 12 : null,
                         insurance_premium: p.insurance ? p.insurance * 12 : null,
                       } }) }}
@@ -259,12 +259,10 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                       <div>
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Mortgage</p>
                         <div className="space-y-1.5">
-                          {p.mortgageLender && (
-                            <div className="flex justify-between">
-                              <span className="text-xs text-gray-500">Lender</span>
-                              <span className="text-xs font-medium text-[#1A2B4A]">{p.mortgageLender}</span>
-                            </div>
-                          )}
+                          <div className="flex justify-between">
+                            <span className="text-xs text-gray-500">Lender</span>
+                            <span className="text-xs font-medium text-[#1A2B4A]">{p.lender ?? '—'}</span>
+                          </div>
                           <div className="flex justify-between">
                             <span className="text-xs text-gray-500">Payment</span>
                             <span className="text-xs font-medium text-[#1A2B4A]">{formatCurrency(p.mortgagePayment)}/mo</span>
