@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import LeaseTermsCard from './LeaseTermsCard'
+import DocumentsSection from './DocumentsSection'
 
 function StatusBadge({ status }: { status: string | null }) {
   if (status === 'active')
@@ -45,11 +46,19 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
   if (unit) {
     const { data } = await admin
       .from('properties')
-      .select('id, name, address, city, state')
+      .select('id, name, address, city, state, year_built')
       .eq('id', unit.property_id)
       .single()
     property = data
   }
+
+  const { data: leaseDocs } = await admin
+    .from('lease_documents')
+    .select('id, category, filename, uploaded_at, notes')
+    .eq('lease_id', id)
+
+  const yearBuilt = property?.year_built as number | null
+  const hideLeadDisclosure = typeof yearBuilt === 'number' && yearBuilt >= 1978
 
   let tenants: any[] = []
   if (tenantIds.length > 0) {
@@ -135,6 +144,12 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
           )}
         </div>
       </div>
+
+      <DocumentsSection
+        leaseId={id}
+        initialDocs={leaseDocs ?? []}
+        hideLeadDisclosure={hideLeadDisclosure}
+      />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   Home, Users, FileText, Wrench, DollarSign,
   BarChart3, TrendingUp, Bell, Settings,
-  Building2, Menu, X, LogOut, Search, Receipt, FileWarning,
+  Building2, Menu, X, LogOut, Search, Receipt, FileWarning, FolderOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +19,7 @@ const navItems = [
   { icon: TrendingUp, label: "Financials", href: "/financials" },
   { icon: Wrench, label: "Maintenance", href: "/maintenance" },
   { icon: FileWarning, label: "Notices", href: "/notices" },
+  { icon: FolderOpen, label: "Templates", href: "/templates" },
   { icon: BarChart3, label: "Reports", href: "/reports" },
   { icon: BarChart3, label: "CPA Report", href: "/reports/cpa" },
 ];
