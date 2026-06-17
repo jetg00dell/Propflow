@@ -10,7 +10,6 @@ const CATEGORIES: { key: string; label: string }[] = [
   { key: 'disclosure_radon', label: 'Radon Disclosure' },
   { key: 'disclosure_brokerage', label: 'Brokerage Disclosure' },
   { key: 'checklist_movein', label: 'Move-In Checklist' },
-  { key: 'checklist_moveout', label: 'Move-Out Checklist' },
 ]
 
 type TemplateInfo = {
