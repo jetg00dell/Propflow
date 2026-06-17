@@ -58,6 +58,13 @@ function todayStr() {
   return new Date().toISOString().split('T')[0]
 }
 
+function isFutureMonth(chargeMonth: string): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const [y, m] = chargeMonth.split('-').map(Number)
+  return new Date(y, m - 1, 1) > today
+}
+
 const METHODS = [
   { value: 'ach', label: 'ACH' },
   { value: 'check', label: 'Check' },
@@ -75,7 +82,7 @@ const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm tex
 const btnPrimary = 'flex-1 py-2 rounded-lg bg-[#1C7BC0] text-white text-sm font-medium hover:bg-[#1C7BC0]/90 disabled:opacity-50 transition-colors'
 const btnSecondary = 'flex-1 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 transition-colors'
 
-function PaidCell({ expected, paid }: { expected: number; paid: number }) {
+function PaidCell({ expected, paid, isFuture }: { expected: number; paid: number; isFuture?: boolean }) {
   if (expected === 0) return <span className="text-xs text-gray-400">—</span>
   const full = paid >= expected
   return (
@@ -84,13 +91,23 @@ function PaidCell({ expected, paid }: { expected: number; paid: number }) {
       <span className="text-[10px] text-gray-400">/ {fmt(expected)}</span>
       {full
         ? <CheckCircle2 size={13} className="text-green-500 flex-shrink-0" />
+        : isFuture && paid === 0
+        ? <span className="text-gray-300 text-xs leading-none">—</span>
         : <XCircle size={13} className={`flex-shrink-0 ${paid === 0 ? 'text-red-400' : 'text-amber-400'}`} />}
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: 'Paid' | 'Partial' | 'Unpaid' }) {
-  const styles = { Paid: 'bg-green-50 text-green-700', Partial: 'bg-amber-50 text-amber-600', Unpaid: 'bg-red-50 text-red-600' }
+type ChargeStatus = 'Paid' | 'Partial' | 'Unpaid' | 'Overpaid' | 'Pending'
+
+function StatusBadge({ status }: { status: ChargeStatus }) {
+  const styles: Record<ChargeStatus, string> = {
+    Paid: 'bg-green-50 text-green-700',
+    Partial: 'bg-amber-50 text-amber-600',
+    Unpaid: 'bg-red-50 text-red-600',
+    Overpaid: 'bg-teal-50 text-teal-700',
+    Pending: 'bg-gray-100 text-gray-500',
+  }
   return (
     <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${styles[status]}`}>
       {status}
@@ -397,9 +414,10 @@ function AddChargeModal({ leases, onClose, onSaved }: {
   )
 }
 
-function chargeStatus(c: ChargeRow): 'Paid' | 'Partial' | 'Unpaid' {
+function chargeStatus(c: ChargeRow, isFuture: boolean): ChargeStatus {
   const paid = c.payments.reduce((s, p) => s + p.amount, 0)
-  if (paid === 0) return 'Unpaid'
+  if (paid === 0) return isFuture ? 'Pending' : 'Unpaid'
+  if (paid > c.total_due) return 'Overpaid'
   if (paid >= c.total_due) return 'Paid'
   return 'Partial'
 }
@@ -411,6 +429,7 @@ export default function PaymentsClient({ charges, leases }: {
   const router = useRouter()
   const [expandedChargeId, setExpandedChargeId] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState('')
+  const [viewMode, setViewMode] = useState<'property' | 'tenant'>('property')
   const [addChargeOpen, setAddChargeOpen] = useState(false)
   const [recordCharge, setRecordCharge] = useState<ChargeRow | null>(null)
   const [editCharge, setEditCharge] = useState<ChargeRow | null>(null)
@@ -432,6 +451,17 @@ export default function PaymentsClient({ charges, leases }: {
   const filteredCharges = selectedMonth
     ? charges.filter(c => c.charge_month.startsWith(selectedMonth))
     : charges
+
+  const sortedCharges = useMemo(() => {
+    if (viewMode === 'tenant') {
+      return [...filteredCharges].sort((a, b) => {
+        const aLast = a.tenant_name?.split(' ').slice(-1)[0] ?? ''
+        const bLast = b.tenant_name?.split(' ').slice(-1)[0] ?? ''
+        return aLast.localeCompare(bLast)
+      })
+    }
+    return filteredCharges
+  }, [filteredCharges, viewMode])
 
   // Stats always reflect the selected month, defaulting to current month when "All"
   const statsMonthPrefix = selectedMonth || currentMonthPrefix
@@ -493,6 +523,17 @@ export default function PaymentsClient({ charges, leases }: {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-[#1A2B4A]">Payments</h1>
         <div className="flex items-center gap-3">
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+            {(['property', 'tenant'] as const).map((mode, i) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3 py-2 text-sm font-medium transition-colors ${i > 0 ? 'border-l border-gray-200' : ''} ${viewMode === mode ? 'bg-[#1C7BC0] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              >
+                {mode === 'property' ? 'By Property' : 'By Tenant'}
+              </button>
+            ))}
+          </div>
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
@@ -528,7 +569,9 @@ export default function PaymentsClient({ charges, leases }: {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-[#F5F6FA]">
-                <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Property / Unit</th>
+                <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">
+                  {viewMode === 'tenant' ? 'Tenant / Property' : 'Property / Unit'}
+                </th>
                 <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Tenant</th>
                 <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Month</th>
                 <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">HA</th>
@@ -539,19 +582,21 @@ export default function PaymentsClient({ charges, leases }: {
               </tr>
             </thead>
             <tbody>
-              {filteredCharges.length === 0 ? (
+              {sortedCharges.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center text-gray-400 text-sm py-12">
                     {selectedMonth ? `No charges for ${formatMonth(`${selectedMonth}-01`)}` : 'No rent charges found'}
                   </td>
                 </tr>
               ) : (
-                filteredCharges.map(c => {
+                sortedCharges.map(c => {
                   const haPaid = c.payments.filter(p => p.paid_by === 'ha').reduce((s, p) => s + p.amount, 0)
                   const tenantPaid = c.payments.filter(p => p.paid_by === 'tenant').reduce((s, p) => s + p.amount, 0)
                   const totalPaid = haPaid + tenantPaid
                   const totalDue = c.total_due
                   const expanded = expandedChargeId === c.id
+                  const future = isFutureMonth(c.charge_month)
+                  const overpaidBy = totalPaid > totalDue ? totalPaid - totalDue : 0
 
                   return (
                     <Fragment key={c.id}>
@@ -564,21 +609,33 @@ export default function PaymentsClient({ charges, leases }: {
                             {expanded
                               ? <ChevronDown size={14} className="text-gray-400 flex-shrink-0" />
                               : <ChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
-                            <div>
-                              <p className="font-medium text-[#1A2B4A] leading-tight">{c.property_name ?? '—'}</p>
-                              <p className="text-xs text-gray-400">Unit {c.unit_number ?? '—'}</p>
-                            </div>
+                            {viewMode === 'tenant' ? (
+                              <div>
+                                <p className="font-semibold text-[#1A2B4A] leading-tight">{c.tenant_name ?? '—'}</p>
+                                <p className="text-xs text-gray-400">{c.property_name ?? '—'} · Unit {c.unit_number ?? '—'}</p>
+                              </div>
+                            ) : (
+                              <div>
+                                <p className="font-medium text-[#1A2B4A] leading-tight">{c.property_name ?? '—'}</p>
+                                <p className="text-xs text-gray-400">Unit {c.unit_number ?? '—'}</p>
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-5 py-4 text-gray-600">{c.tenant_name ?? '—'}</td>
                         <td className="px-5 py-4 text-gray-600 whitespace-nowrap">{formatMonth(c.charge_month)}</td>
-                        <td className="px-5 py-4"><PaidCell expected={c.ha_amount} paid={haPaid} /></td>
-                        <td className="px-5 py-4"><PaidCell expected={c.tenant_amount} paid={tenantPaid} /></td>
+                        <td className="px-5 py-4"><PaidCell expected={c.ha_amount} paid={haPaid} isFuture={future} /></td>
+                        <td className="px-5 py-4"><PaidCell expected={c.tenant_amount} paid={tenantPaid} isFuture={future} /></td>
                         <td className="px-5 py-4">
                           <p className="text-xs font-medium text-[#1A2B4A]">{fmt(totalPaid)}</p>
                           <p className="text-[10px] text-gray-400">of {fmt(totalDue)}</p>
                         </td>
-                        <td className="px-5 py-4"><StatusBadge status={chargeStatus(c)} /></td>
+                        <td className="px-5 py-4">
+                          <StatusBadge status={chargeStatus(c, future)} />
+                          {overpaidBy > 0 && (
+                            <p className="text-[10px] text-teal-600 mt-0.5">+{fmt(overpaidBy)} overpaid</p>
+                          )}
+                        </td>
                         <td className="px-5 py-4 text-right" onClick={e => e.stopPropagation()}>
                           {confirmDeleteChargeId === c.id ? (
                             <div className="flex items-center justify-end gap-3">
