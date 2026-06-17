@@ -74,6 +74,7 @@ function nonRenewalNoticeDays(months: number): number {
   return 3
 }
 
+// Derive form + notice period from selections
 function deriveFormInfo(
   noticeType: NoticeType,
   isCaresAct: boolean,
@@ -82,18 +83,51 @@ function deriveFormInfo(
 ): { form: string; days: number; title: string; description: string } {
   switch (noticeType) {
     case 'nonpayment':
-      return { form: 'JDF 99A', days: isCaresAct ? 30 : 10, title: 'Demand for Compliance — Non-Payment', description: 'Tenant must pay past-due rent or vacate.' }
+      return {
+        form: 'JDF 99A',
+        days: isCaresAct ? 30 : 10,
+        title: 'Demand for Compliance — Non-Payment',
+        description: 'Tenant must pay past-due rent or vacate.',
+      }
     case 'lease_violation':
-      return { form: 'JDF 99A', days: isCaresAct ? 30 : 10, title: 'Demand for Compliance — Lease Violation', description: 'Tenant must cure the lease violation or vacate.' }
+      return {
+        form: 'JDF 99A',
+        days: isCaresAct ? 30 : 10,
+        title: 'Demand for Compliance — Lease Violation',
+        description: 'Tenant must cure the lease violation or vacate.',
+      }
     case 'repeat_violation':
-      return { form: 'JDF 99B', days: isCaresAct ? 30 : 10, title: 'Notice to Terminate — Repeat Violation', description: 'Prior JDF 99A was served. Tenant must vacate.' }
+      return {
+        form: 'JDF 99B',
+        days: isCaresAct ? 30 : 10,
+        title: 'Notice to Terminate — Repeat Violation',
+        description: 'Prior JDF 99A was served. Tenant must vacate.',
+      }
     case 'substantial_violation':
-      return { form: 'JDF 99B', days: 3, title: 'Notice to Terminate — Substantial/Criminal Violation', description: 'No cure period. Tenant must vacate immediately.' }
-    case 'lease_not_renewed':
+      return {
+        form: 'JDF 99B',
+        days: 3,
+        title: 'Notice to Terminate — Substantial/Criminal Violation',
+        description: 'No cure period. Tenant must vacate immediately.',
+      }
+    case 'lease_not_renewed': {
       const noticeDays = nonRenewalNoticeDays(leaseMonths)
-      return { form: 'JDF 99B', days: noticeDays, title: 'Notice to Terminate — Lease Not Renewed', description: `Lease will not be renewed. ${noticeDays} days notice required.` }
-    case 'no_fault':
-      return { form: 'JDF 99C', days: 90, title: 'Notice of No-Fault Eviction', description: 'Tenancy is ending without fault. Tenant must vacate.' }
+      return {
+        form: 'JDF 99B',
+        days: noticeDays,
+        title: 'Notice to Terminate — Lease Not Renewed',
+        description: `Lease will not be renewed. ${noticeDays} days notice required.`,
+      }
+    }
+    case 'no_fault': {
+      const nfDays = noFaultReason === 'landlord_use' ? 90 : 90
+      return {
+        form: 'JDF 99C',
+        days: nfDays,
+        title: 'Notice of No-Fault Eviction',
+        description: 'Tenancy is ending without fault. Tenant must vacate.',
+      }
+    }
   }
 }
 
@@ -106,7 +140,11 @@ function Badge({ children, color }: { children: React.ReactNode; color: string }
     red: 'bg-red-100 text-red-700',
     gray: 'bg-gray-100 text-gray-600',
   }
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[color] || colors.gray}`}>{children}</span>
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colors[color] || colors.gray}`}>
+      {children}
+    </span>
+  )
 }
 
 function FormBadge({ form }: { form: string }) {
@@ -115,49 +153,88 @@ function FormBadge({ form }: { form: string }) {
     'JDF 99B': 'bg-orange-50 text-orange-700 border border-orange-300',
     'JDF 99C': 'bg-purple-50 text-purple-700 border border-purple-300',
   }
-  return <span className={`inline-flex items-center px-3 py-1 rounded text-sm font-semibold ${colors[form] || ''}`}>{form}</span>
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded text-sm font-semibold ${colors[form] || ''}`}>
+      {form}
+    </span>
+  )
 }
 
 // ─── Print Preview ────────────────────────────────────────────────────────────
 
 function PrintPreview({
-  lease, noticeType, formInfo, servedDate, cureDeadline, amountDue, dueMonths,
-  violationTerm, violationDescription, priorNoticeDate, substantialChecks,
-  noFaultReason, repairsCompletionDate, noFaultExplanation, signerRole,
+  lease,
+  noticeType,
+  formInfo,
+  servedDate,
+  cureDeadline,
+  amountDue,
+  dueMonths,
+  violationTerm,
+  violationDescription,
+  priorNoticeDate,
+  substantialChecks,
+  noFaultReason,
+  repairsCompletionDate,
+  noFaultExplanation,
+  signerRole,
 }: {
-  lease: EnrichedLease; noticeType: NoticeType; formInfo: ReturnType<typeof deriveFormInfo>
-  servedDate: Date; cureDeadline: Date; amountDue: string; dueMonths: string
-  violationTerm: string; violationDescription: string; priorNoticeDate: string
-  substantialChecks: string[]; noFaultReason: NoFaultReason; repairsCompletionDate: string
-  noFaultExplanation: string; signerRole: string
+  lease: EnrichedLease
+  noticeType: NoticeType
+  formInfo: ReturnType<typeof deriveFormInfo>
+  servedDate: Date
+  cureDeadline: Date
+  amountDue: string
+  dueMonths: string
+  violationTerm: string
+  violationDescription: string
+  priorNoticeDate: string
+  substantialChecks: string[]
+  noFaultReason: NoFaultReason
+  repairsCompletionDate: string
+  noFaultExplanation: string
+  signerRole: string
 }) {
   const tenantNames = lease.allTenants.filter(Boolean).map(t => `${t!.first_name} ${t!.last_name}`).join(' & ')
-  const county = 'Larimer'
+  const county = lease.propertyCity === 'Fort Collins' ? 'Larimer' : 'Larimer' // both cities are Larimer County
 
   const noFaultLabels: Record<NoFaultReason, string> = {
-    demolition: 'Demolition or Conversion', repairs: 'Substantial Repairs',
-    landlord_use: 'Landlord/Family Use', for_sale: 'Home for Sale',
-    declined_renewal: 'Tenant Declined New Rental Agreement', late_history: 'History of Late Payments',
+    demolition: 'Demolition or Conversion',
+    repairs: 'Substantial Repairs',
+    landlord_use: 'Landlord/Family Use',
+    for_sale: 'Home for Sale',
+    declined_renewal: 'Tenant Declined New Rental Agreement',
+    late_history: 'History of Late Payments',
   }
 
   return (
-    <div className="bg-white border border-gray-300 rounded-lg p-8 font-serif text-sm leading-relaxed text-gray-900 max-w-2xl">
+    <div id="print-area" className="bg-white border border-gray-300 rounded-lg p-8 print:p-0 print:border-0 font-serif text-sm leading-relaxed text-gray-900 max-w-2xl">
+      {/* Header */}
       <div className="border-2 border-gray-900 mb-6">
         <div className="flex">
-          <div className="border-r-2 border-gray-900 px-4 py-3 font-bold text-xs w-28 flex items-center justify-center text-center">{formInfo.form}</div>
+          <div className="border-r-2 border-gray-900 px-4 py-3 font-bold text-xs w-28 flex items-center justify-center text-center">
+            {formInfo.form}
+          </div>
           <div className="px-4 py-3 text-center flex-1">
             <div className="font-bold text-lg">{formInfo.form === 'JDF 99A' ? 'Demand for Compliance' : formInfo.form === 'JDF 99B' ? 'Notice to Terminate Tenancy' : 'Notice of No-Fault Eviction'}</div>
             <div className="text-xs">Residential Eviction Notice</div>
-            <div className="text-xs">{formInfo.form === 'JDF 99A' ? 'C.R.S. § 13-40-104, 106' : formInfo.form === 'JDF 99B' ? 'C.R.S. § 13-40-104, 107, 107.5' : 'C.R.S. § 38-12-1303'}</div>
+            <div className="text-xs">
+              {formInfo.form === 'JDF 99A' ? 'C.R.S. § 13-40-104, 106' : formInfo.form === 'JDF 99B' ? 'C.R.S. § 13-40-104, 107, 107.5' : 'C.R.S. § 38-12-1303'}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* To */}
       <div className="flex justify-between mb-4">
-        <div><span className="text-xs text-gray-500 italic">To: </span><span className="font-medium border-b border-gray-900 px-2">{tenantNames}</span></div>
+        <div>
+          <span className="text-xs text-gray-500 italic">To: </span>
+          <span className="font-medium border-b border-gray-900 px-2">{tenantNames}</span>
+        </div>
         <div className="text-xs">☑ And any other occupants.</div>
       </div>
 
+      {/* Section 1 */}
       {formInfo.form === 'JDF 99A' && (
         <div className="mb-4">
           <div className="font-bold text-[#1C7BC0] mb-1">1. Time to Comply</div>
@@ -174,16 +251,21 @@ function PrintPreview({
           <div className="font-bold text-[#1C7BC0] mb-1">1. Move-Out Date</div>
           <p className="text-xs mb-2">The Landlord is ending your tenancy and starting the eviction process. You must move out by:</p>
           <div className="text-xs">
-            <span className="font-medium">Date: </span><span className="border-b border-gray-900 px-4">{formatDate(cureDeadline)}</span>
-            {'  '}<span className="border-b border-gray-900 px-4">11:59</span>{' '}☑ PM
+            <span className="font-medium">Date: </span>
+            <span className="border-b border-gray-900 px-4">{formatDate(cureDeadline)}</span>
+            {'  '}
+            <span className="border-b border-gray-900 px-4">11:59</span>{' '}
+            ☑ PM
           </div>
         </div>
       )}
 
+      {/* Section 2 - Grounds / Reason */}
       <div className="mb-4">
         <div className="font-bold text-[#1C7BC0] mb-1">
-          {formInfo.form === 'JDF 99A' ? '2. Grounds for Eviction' : formInfo.form === 'JDF 99C' ? '2. Cause for Termination' : '2. Reason for Termination'}
+          {formInfo.form === 'JDF 99A' ? '2. Grounds for Eviction' : '2. ' + (formInfo.form === 'JDF 99C' ? 'Cause for Termination' : 'Reason for Termination')}
         </div>
+
         {noticeType === 'nonpayment' && (
           <div className="text-xs">
             <div className="mb-1">☑ <strong>a) Pay Your Rent</strong> — C.R.S. § 13-40-104(d)</div>
@@ -193,6 +275,7 @@ function PrintPreview({
             </div>
           </div>
         )}
+
         {noticeType === 'lease_violation' && (
           <div className="text-xs">
             <div className="mb-1">☑ <strong>b) Comply with the Lease</strong> — C.R.S. § 13-40-104(e)</div>
@@ -202,6 +285,7 @@ function PrintPreview({
             </div>
           </div>
         )}
+
         {noticeType === 'repeat_violation' && (
           <div className="text-xs">
             <div className="mb-1">☑ <strong>c) Repeat Violation</strong> — Move Out in {formInfo.days} Days</div>
@@ -212,6 +296,7 @@ function PrintPreview({
             </div>
           </div>
         )}
+
         {noticeType === 'substantial_violation' && (
           <div className="text-xs">
             <div className="mb-1">☑ <strong>b) Substantial Violation (criminal behavior)</strong> — Move Out in 3 Days</div>
@@ -223,12 +308,14 @@ function PrintPreview({
             </div>
           </div>
         )}
+
         {noticeType === 'lease_not_renewed' && (
           <div className="text-xs">
             <div className="mb-1">☑ <strong>a) Lease Not Renewed</strong></div>
             <div className="ml-4">Your periodic tenancy will end, or the Landlord will not renew the fixed-term tenancy.</div>
           </div>
         )}
+
         {noticeType === 'no_fault' && (
           <div className="text-xs">
             <div className="mb-1">☑ <strong>{noFaultLabels[noFaultReason]}</strong></div>
@@ -240,8 +327,11 @@ function PrintPreview({
         )}
       </div>
 
+      {/* Section 3 - Premises */}
       <div className="mb-4">
-        <div className="font-bold text-[#1C7BC0] mb-1">{formInfo.form === 'JDF 99A' ? '3. Description of Premises' : '4. Description of Premises'}</div>
+        <div className="font-bold text-[#1C7BC0] mb-1">
+          {formInfo.form === 'JDF 99A' ? '3. Description of Premises' : formInfo.form === 'JDF 99C' ? '4. Description of Premises (the home)' : '4. Description of Premises'}
+        </div>
         <div className="text-xs space-y-1">
           <div>Street Address: <span className="border-b border-gray-900 px-2">{lease.propertyAddress}{lease.unitNumber && lease.unitNumber !== 'Main' ? `, Unit ${lease.unitNumber}` : ''}</span></div>
           <div className="flex gap-8">
@@ -254,18 +344,22 @@ function PrintPreview({
         </div>
       </div>
 
+      {/* Time to Cure (99A only) */}
       {formInfo.form === 'JDF 99A' && (
         <div className="mb-4">
           <div className="font-bold text-[#1C7BC0] mb-1">4. Time to Cure</div>
           <div className="text-xs">
-            <p className="mb-1">If you don't fix the problems listed above, you must move out by:</p>
+            <p className="mb-1">If you don&apos;t fix the problems listed above, you must move out by:</p>
             <div>Date: <span className="border-b border-gray-900 px-4">{formatDate(cureDeadline)}</span>{'  '}Time: <span className="border-b border-gray-900 px-2">11:59</span> ☑ PM</div>
           </div>
         </div>
       )}
 
+      {/* Tenant Rights */}
       <div className="mb-4 border border-gray-200 rounded p-3 bg-gray-50">
-        <div className="font-bold text-[#1C7BC0] mb-1 text-xs">{formInfo.form === 'JDF 99A' ? '7. Tenant\'s Rights' : '7. Right to Mediation'}</div>
+        <div className="font-bold text-[#1C7BC0] mb-1 text-xs">
+          {formInfo.form === 'JDF 99A' ? '7. Tenant\'s Rights' : '7. Right to Mediation'}
+        </div>
         <div className="text-xs space-y-1">
           <p className="font-medium">To Tenants, if you receive:</p>
           <p>• Supplemental Security Income (SSI)</p>
@@ -278,6 +372,7 @@ function PrintPreview({
         </div>
       </div>
 
+      {/* Signature */}
       <div className="mb-4">
         <div className="font-bold text-[#1C7BC0] mb-1">5. Signature</div>
         <div className="text-xs flex gap-8 items-center">
@@ -287,6 +382,7 @@ function PrintPreview({
         <div className="text-xs mt-1">Dated: <span className="border-b border-gray-900 px-4">{formatDate(new Date())}</span></div>
       </div>
 
+      {/* Service section */}
       <div className="mb-2">
         <div className="font-bold text-[#1C7BC0] mb-1">6. Service — C.R.S. § 13-40-108</div>
         <div className="text-xs space-y-1">
@@ -299,6 +395,7 @@ function PrintPreview({
         </div>
       </div>
 
+      {/* Footer */}
       <div className="border-t border-gray-300 mt-4 pt-2 text-xs text-gray-400 flex justify-between">
         <span>{formInfo.form} – {formInfo.title} | R: {formInfo.form === 'JDF 99A' ? 'September 4, 2025' : 'May 1, 2025'}</span>
         <span>www.coloradojudicial.gov</span>
@@ -310,11 +407,18 @@ function PrintPreview({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
+  // Step state
   const [step, setStep] = useState<1 | 2 | 3>(1)
+
+  // Step 1: tenant selection
   const [selectedLeaseId, setSelectedLeaseId] = useState('')
+
+  // Step 2: notice type
   const [noticeType, setNoticeType] = useState<NoticeType | ''>('')
   const [noFaultReason, setNoFaultReason] = useState<NoFaultReason>('demolition')
   const [substantialChecks, setSubstantialChecks] = useState<string[]>([])
+
+  // Step 3: details
   const [amountDue, setAmountDue] = useState('')
   const [dueMonths, setDueMonths] = useState('')
   const [violationTerm, setViolationTerm] = useState('')
@@ -326,7 +430,11 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
   const [signerRole, setSignerRole] = useState('Landlord')
 
   const selectedLease = leases.find(l => l.leaseId === selectedLeaseId)
-  const leaseMonths = selectedLease ? leaseLengthMonths(selectedLease.startDate, selectedLease.endDate) : 12
+
+  const leaseMonths = selectedLease
+    ? leaseLengthMonths(selectedLease.startDate, selectedLease.endDate)
+    : 12
+
   const formInfo = useMemo(() => {
     if (!noticeType || !selectedLease) return null
     return deriveFormInfo(noticeType, selectedLease.isCaresAct, leaseMonths, noFaultReason)
@@ -334,19 +442,64 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
 
   const cureDeadline = formInfo ? addDays(servedDate, formInfo.days + 1) : new Date()
 
+  const handlePrint = () => {
+    const printArea = document.getElementById('print-area')
+    if (!printArea) return
+    const win = window.open('', '_blank', 'width=800,height=1000')
+    if (!win) return
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Notice</title>
+          <script src="https://cdn.tailwindcss.com"><\/script>
+          <style>
+            body { font-family: Georgia, serif; padding: 40px; }
+            @media print { body { padding: 0; } }
+          </style>
+        </head>
+        <body>
+          ${printArea.innerHTML}
+          <script>
+            window.onload = function() {
+              window.print();
+              window.onafterprint = function() { window.close(); }
+            }
+          <\/script>
+        </body>
+      </html>
+    `)
+    win.document.close()
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="min-h-screen bg-[#F5F6FA]">
       <div className="max-w-4xl mx-auto px-6 py-8">
+
+        {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-[#1A2B4A]">Notice Generator</h1>
           <p className="text-sm text-gray-500 mt-1">Generate Colorado JDF eviction notices pre-filled from tenant and property data.</p>
         </div>
 
+        {/* Step Indicator */}
         <div className="flex items-center gap-2 mb-8">
-          {[{ n: 1, label: 'Select Tenant' }, { n: 2, label: 'Notice Type' }, { n: 3, label: 'Details & Preview' }].map(({ n, label }, i) => (
+          {[
+            { n: 1, label: 'Select Tenant' },
+            { n: 2, label: 'Notice Type' },
+            { n: 3, label: 'Details & Preview' },
+          ].map(({ n, label }, i) => (
             <div key={n} className="flex items-center gap-2">
-              <button onClick={() => { if (n < step || (n === 2 && selectedLeaseId)) setStep(n as 1 | 2 | 3) }} className={`flex items-center gap-2 ${n <= step ? 'cursor-pointer' : 'cursor-default'}`}>
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step === n ? 'bg-[#1C7BC0] text-white' : step > n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+              <button
+                onClick={() => {
+                  if (n < step || (n === 2 && selectedLeaseId)) setStep(n as 1 | 2 | 3)
+                }}
+                className={`flex items-center gap-2 ${n <= step ? 'cursor-pointer' : 'cursor-default'}`}
+              >
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors
+                  ${step === n ? 'bg-[#1C7BC0] text-white' : step > n ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
                   {step > n ? '✓' : n}
                 </div>
                 <span className={`text-sm font-medium ${step === n ? 'text-[#1A2B4A]' : 'text-gray-400'}`}>{label}</span>
@@ -356,25 +509,41 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
           ))}
         </div>
 
+        {/* ── Step 1: Select Tenant ── */}
         {step === 1 && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-[#1A2B4A] mb-4">Select Tenant</h2>
             <div className="grid gap-3">
               {leases.map(lease => {
-                const tenantName = lease.primaryTenant ? `${lease.primaryTenant.first_name} ${lease.primaryTenant.last_name}` : 'Unknown'
+                const tenantName = lease.primaryTenant
+                  ? `${lease.primaryTenant.first_name} ${lease.primaryTenant.last_name}`
+                  : 'Unknown'
                 const coTenants = lease.allTenants.filter(t => t?.id !== lease.primaryTenant?.id)
                 const isSelected = selectedLeaseId === lease.leaseId
+
                 return (
-                  <button key={lease.leaseId} onClick={() => setSelectedLeaseId(lease.leaseId)}
-                    className={`w-full text-left p-4 rounded-lg border-2 transition-all ${isSelected ? 'border-[#1C7BC0] bg-[#E8F4FB]' : 'border-gray-200 bg-white hover:border-gray-300'}`}>
+                  <button
+                    key={lease.leaseId}
+                    onClick={() => setSelectedLeaseId(lease.leaseId)}
+                    className={`w-full text-left p-4 rounded-lg border-2 transition-all
+                      ${isSelected
+                        ? 'border-[#1C7BC0] bg-[#E8F4FB]'
+                        : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                  >
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="font-semibold text-[#1A2B4A]">
                           {tenantName}
-                          {coTenants.length > 0 && <span className="text-gray-500 font-normal"> & {coTenants.map(t => `${t!.first_name} ${t!.last_name}`).join(', ')}</span>}
+                          {coTenants.length > 0 && (
+                            <span className="text-gray-500 font-normal"> & {coTenants.map(t => `${t!.first_name} ${t!.last_name}`).join(', ')}</span>
+                          )}
                         </div>
-                        <div className="text-sm text-gray-500 mt-0.5">{lease.propertyName} {lease.unitNumber && `· Unit ${lease.unitNumber}`}</div>
-                        <div className="text-xs text-gray-400 mt-0.5">{lease.propertyAddress}, {lease.propertyCity} · ${lease.monthlyRent.toLocaleString()}/mo</div>
+                        <div className="text-sm text-gray-500 mt-0.5">
+                          {lease.propertyName} {lease.unitNumber && `· Unit ${lease.unitNumber}`}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {lease.propertyAddress}, {lease.propertyCity} · ${lease.monthlyRent.toLocaleString()}/mo
+                        </div>
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         {lease.isHaTenant && <Badge color="blue">HA Tenant</Badge>}
@@ -386,19 +555,26 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
               })}
             </div>
             <div className="mt-6 flex justify-end">
-              <button disabled={!selectedLeaseId} onClick={() => setStep(2)}
-                className="px-6 py-2 bg-[#1C7BC0] text-white rounded-md text-sm font-medium disabled:opacity-40 hover:bg-[#1568a3] transition-colors">
+              <button
+                disabled={!selectedLeaseId}
+                onClick={() => setStep(2)}
+                className="px-6 py-2 bg-[#1C7BC0] text-white rounded-md text-sm font-medium disabled:opacity-40 hover:bg-[#1568a3] transition-colors"
+              >
                 Next: Choose Notice Type →
               </button>
             </div>
           </div>
         )}
 
+        {/* ── Step 2: Notice Type ── */}
         {step === 2 && selectedLease && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
+            {/* Tenant summary bar */}
             <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
               <div>
-                <div className="font-semibold text-[#1A2B4A]">{selectedLease.primaryTenant?.first_name} {selectedLease.primaryTenant?.last_name}</div>
+                <div className="font-semibold text-[#1A2B4A]">
+                  {selectedLease.primaryTenant?.first_name} {selectedLease.primaryTenant?.last_name}
+                </div>
                 <div className="text-sm text-gray-500">{selectedLease.propertyName} · {selectedLease.propertyAddress}</div>
               </div>
               <div className="flex gap-2">
@@ -406,18 +582,62 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
                 {selectedLease.isCaresAct && <Badge color="orange">CARES Act · 30-day notice</Badge>}
               </div>
             </div>
+
             <h2 className="text-base font-semibold text-[#1A2B4A] mb-4">What is the reason for this notice?</h2>
+
             <div className="grid gap-3">
               {([
-                { value: 'nonpayment', label: 'Non-Payment of Rent', sub: 'Tenant has not paid rent that is due.', form: 'JDF 99A', days: selectedLease.isCaresAct ? 30 : 10 },
-                { value: 'lease_violation', label: 'Lease Violation (first offense)', sub: 'Tenant violated a lease term and has not yet received a prior notice.', form: 'JDF 99A', days: selectedLease.isCaresAct ? 30 : 10 },
-                { value: 'repeat_violation', label: 'Repeat Violation', sub: 'A prior JDF 99A was already served for this type of violation.', form: 'JDF 99B', days: selectedLease.isCaresAct ? 30 : 10 },
-                { value: 'substantial_violation', label: 'Substantial / Criminal Violation', sub: 'Dangerous, violent, or drug-related felony activity.', form: 'JDF 99B', days: 3 },
-                { value: 'lease_not_renewed', label: 'Lease Not Renewed', sub: 'Ending a periodic tenancy or declining to renew a fixed-term lease.', form: 'JDF 99B', days: nonRenewalNoticeDays(leaseMonths) },
-                { value: 'no_fault', label: 'No-Fault Termination', sub: 'Demolition, repairs, landlord use, sale, or other no-fault reasons.', form: 'JDF 99C', days: 90 },
+                {
+                  value: 'nonpayment',
+                  label: 'Non-Payment of Rent',
+                  sub: 'Tenant has not paid rent that is due.',
+                  form: 'JDF 99A',
+                  days: selectedLease.isCaresAct ? 30 : 10,
+                },
+                {
+                  value: 'lease_violation',
+                  label: 'Lease Violation (first offense)',
+                  sub: 'Tenant violated a lease term and has not yet received a prior notice.',
+                  form: 'JDF 99A',
+                  days: selectedLease.isCaresAct ? 30 : 10,
+                },
+                {
+                  value: 'repeat_violation',
+                  label: 'Repeat Violation',
+                  sub: 'A prior JDF 99A was already served for this type of violation.',
+                  form: 'JDF 99B',
+                  days: selectedLease.isCaresAct ? 30 : 10,
+                },
+                {
+                  value: 'substantial_violation',
+                  label: 'Substantial / Criminal Violation',
+                  sub: 'Dangerous, violent, or drug-related felony activity.',
+                  form: 'JDF 99B',
+                  days: 3,
+                },
+                {
+                  value: 'lease_not_renewed',
+                  label: 'Lease Not Renewed',
+                  sub: 'Ending a periodic tenancy or declining to renew a fixed-term lease.',
+                  form: 'JDF 99B',
+                  days: nonRenewalNoticeDays(leaseMonths),
+                },
+                {
+                  value: 'no_fault',
+                  label: 'No-Fault Termination',
+                  sub: 'Demolition, repairs, landlord use, sale, or other no-fault reasons.',
+                  form: 'JDF 99C',
+                  days: 90,
+                },
               ] as const).map(option => (
-                <button key={option.value} onClick={() => setNoticeType(option.value)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${noticeType === option.value ? 'border-[#1C7BC0] bg-[#E8F4FB]' : 'border-gray-200 hover:border-gray-300'}`}>
+                <button
+                  key={option.value}
+                  onClick={() => setNoticeType(option.value)}
+                  className={`w-full text-left p-4 rounded-lg border-2 transition-all
+                    ${noticeType === option.value
+                      ? 'border-[#1C7BC0] bg-[#E8F4FB]'
+                      : 'border-gray-200 hover:border-gray-300'}`}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="font-medium text-[#1A2B4A]">{option.label}</div>
@@ -432,6 +652,7 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
               ))}
             </div>
 
+            {/* No-fault sub-reason */}
             {noticeType === 'no_fault' && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="text-sm font-medium text-[#1A2B4A] mb-2">No-Fault Reason</div>
@@ -444,8 +665,12 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
                     { value: 'declined_renewal', label: 'Tenant Declined New Agreement' },
                     { value: 'late_history', label: 'History of Late Payments' },
                   ] as const).map(r => (
-                    <button key={r.value} onClick={() => setNoFaultReason(r.value)}
-                      className={`p-2 text-xs rounded border text-left transition-colors ${noFaultReason === r.value ? 'border-[#1C7BC0] bg-[#E8F4FB] text-[#1C7BC0] font-medium' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}>
+                    <button
+                      key={r.value}
+                      onClick={() => setNoFaultReason(r.value)}
+                      className={`p-2 text-xs rounded border text-left transition-colors
+                        ${noFaultReason === r.value ? 'border-[#1C7BC0] bg-[#E8F4FB] text-[#1C7BC0] font-medium' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                    >
                       {r.label}
                     </button>
                   ))}
@@ -454,17 +679,24 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
             )}
 
             <div className="mt-6 flex justify-between">
-              <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">← Back</button>
-              <button disabled={!noticeType} onClick={() => setStep(3)}
-                className="px-6 py-2 bg-[#1C7BC0] text-white rounded-md text-sm font-medium disabled:opacity-40 hover:bg-[#1568a3] transition-colors">
+              <button onClick={() => setStep(1)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+                ← Back
+              </button>
+              <button
+                disabled={!noticeType}
+                onClick={() => setStep(3)}
+                className="px-6 py-2 bg-[#1C7BC0] text-white rounded-md text-sm font-medium disabled:opacity-40 hover:bg-[#1568a3] transition-colors"
+              >
                 Next: Fill Details →
               </button>
             </div>
           </div>
         )}
 
+        {/* ── Step 3: Details + Preview ── */}
         {step === 3 && selectedLease && noticeType && formInfo && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left: Form inputs */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-100">
                 <FormBadge form={formInfo.form} />
@@ -476,55 +708,80 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
 
               {selectedLease.isCaresAct && (
                 <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded text-xs text-orange-700">
-                  <strong>CARES Act property:</strong> {selectedLease.isHaTenant ? 'HA tenant — federally subsidized.' : 'Federally backed mortgage.'} 30-day notice required.
+                  <strong>CARES Act property:</strong> {selectedLease.isHaTenant ? 'HA tenant — federally subsidized.' : 'Federally backed mortgage.'} Standard {selectedLease.isCaresAct ? '30' : '10'}-day notice required.
                 </div>
               )}
 
               <div className="space-y-4">
+                {/* Non-payment fields */}
                 {noticeType === 'nonpayment' && (
                   <>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Total Amount Due ($)</label>
-                      <input type="text" value={amountDue} onChange={e => setAmountDue(e.target.value)}
+                      <input
+                        type="text"
+                        value={amountDue}
+                        onChange={e => setAmountDue(e.target.value)}
                         placeholder={selectedLease.latestCharge?.tenant_amount?.toString() || selectedLease.monthlyRent.toString()}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                      />
                       {selectedLease.latestCharge && (
-                        <p className="text-xs text-gray-400 mt-1">Latest charge: ${selectedLease.latestCharge.tenant_amount?.toLocaleString()} tenant / ${selectedLease.latestCharge.ha_amount?.toLocaleString()} HA</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          Latest charge: ${selectedLease.latestCharge.tenant_amount?.toLocaleString()} tenant / ${selectedLease.latestCharge.ha_amount?.toLocaleString()} HA
+                        </p>
                       )}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Missed Payment Month(s)</label>
-                      <input type="text" value={dueMonths} onChange={e => setDueMonths(e.target.value)}
+                      <input
+                        type="text"
+                        value={dueMonths}
+                        onChange={e => setDueMonths(e.target.value)}
                         placeholder="e.g. June 2026"
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                      />
                     </div>
                   </>
                 )}
 
+                {/* Lease violation fields */}
                 {(noticeType === 'lease_violation' || noticeType === 'repeat_violation') && (
                   <>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Lease Term Violated</label>
-                      <input type="text" value={violationTerm} onChange={e => setViolationTerm(e.target.value)}
+                      <input
+                        type="text"
+                        value={violationTerm}
+                        onChange={e => setViolationTerm(e.target.value)}
                         placeholder="e.g. No Unauthorized Occupants"
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                      />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Explanation</label>
-                      <textarea value={violationDescription} onChange={e => setViolationDescription(e.target.value)}
-                        placeholder="Describe how the lease term was violated..." rows={3}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                      <textarea
+                        value={violationDescription}
+                        onChange={e => setViolationDescription(e.target.value)}
+                        placeholder="Describe how the lease term was violated..."
+                        rows={3}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                      />
                     </div>
                     {noticeType === 'repeat_violation' && (
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Date Prior JDF 99A Was Served</label>
-                        <input type="date" value={priorNoticeDate} onChange={e => setPriorNoticeDate(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                        <input
+                          type="date"
+                          value={priorNoticeDate}
+                          onChange={e => setPriorNoticeDate(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                        />
                       </div>
                     )}
                   </>
                 )}
 
+                {/* Substantial violation */}
                 {noticeType === 'substantial_violation' && (
                   <>
                     <div>
@@ -535,43 +792,67 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
                         { value: 'nuisance', label: 'Committed a criminal act that was a public nuisance (potential 180+ day jail time)' },
                       ].map(opt => (
                         <label key={opt.value} className="flex items-start gap-2 mb-2 cursor-pointer">
-                          <input type="checkbox" checked={substantialChecks.includes(opt.value)}
-                            onChange={e => setSubstantialChecks(prev => e.target.checked ? [...prev, opt.value] : prev.filter(v => v !== opt.value))}
-                            className="mt-0.5" />
+                          <input
+                            type="checkbox"
+                            checked={substantialChecks.includes(opt.value)}
+                            onChange={e => {
+                              setSubstantialChecks(prev =>
+                                e.target.checked ? [...prev, opt.value] : prev.filter(v => v !== opt.value)
+                              )
+                            }}
+                            className="mt-0.5"
+                          />
                           <span className="text-xs text-gray-700">{opt.label}</span>
                         </label>
                       ))}
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Description of What Happened</label>
-                      <textarea value={violationDescription} onChange={e => setViolationDescription(e.target.value)} rows={3}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                      <textarea
+                        value={violationDescription}
+                        onChange={e => setViolationDescription(e.target.value)}
+                        rows={3}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                      />
                     </div>
                   </>
                 )}
 
+                {/* No-fault fields */}
                 {noticeType === 'no_fault' && (
                   <>
                     {noFaultReason === 'repairs' && (
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">Expected Completion Date</label>
-                        <input type="date" value={repairsCompletionDate} onChange={e => setRepairsCompletionDate(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                        <input
+                          type="date"
+                          value={repairsCompletionDate}
+                          onChange={e => setRepairsCompletionDate(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                        />
                       </div>
                     )}
                     <div>
                       <label className="block text-xs font-medium text-gray-700 mb-1">Explanation</label>
-                      <textarea value={noFaultExplanation} onChange={e => setNoFaultExplanation(e.target.value)}
-                        placeholder="Describe the reason for termination..." rows={3}
-                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]" />
+                      <textarea
+                        value={noFaultExplanation}
+                        onChange={e => setNoFaultExplanation(e.target.value)}
+                        placeholder="Describe the reason for termination..."
+                        rows={3}
+                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                      />
                     </div>
                   </>
                 )}
 
+                {/* Signer role */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Signing As</label>
-                  <select value={signerRole} onChange={e => setSignerRole(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]">
+                  <select
+                    value={signerRole}
+                    onChange={e => setSignerRole(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#1C7BC0]"
+                  >
                     <option>Landlord</option>
                     <option>Landlord&apos;s Agent</option>
                     <option>Landlord&apos;s Attorney</option>
@@ -580,30 +861,44 @@ export default function NoticesClient({ leases }: { leases: EnrichedLease[] }) {
               </div>
 
               <div className="mt-6 flex justify-between">
-                <button onClick={() => setStep(2)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">← Back</button>
-                <button onClick={() => window.print()}
-                  className="px-6 py-2 bg-[#1C7BC0] text-white rounded-md text-sm font-medium hover:bg-[#1568a3] transition-colors">
+                <button onClick={() => setStep(2)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+                  ← Back
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="px-6 py-2 bg-[#1C7BC0] text-white rounded-md text-sm font-medium hover:bg-[#1568a3] transition-colors"
+                >
                   🖨 Print Notice
                 </button>
               </div>
             </div>
 
+            {/* Right: Live preview */}
             <div>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Live Preview</div>
               <div className="overflow-auto max-h-[800px]">
                 <PrintPreview
-                  lease={selectedLease} noticeType={noticeType} formInfo={formInfo}
-                  servedDate={servedDate} cureDeadline={cureDeadline}
+                  lease={selectedLease}
+                  noticeType={noticeType}
+                  formInfo={formInfo}
+                  servedDate={servedDate}
+                  cureDeadline={cureDeadline}
                   amountDue={amountDue || selectedLease.latestCharge?.tenant_amount?.toString() || selectedLease.monthlyRent.toString()}
-                  dueMonths={dueMonths} violationTerm={violationTerm} violationDescription={violationDescription}
-                  priorNoticeDate={priorNoticeDate} substantialChecks={substantialChecks}
-                  noFaultReason={noFaultReason} repairsCompletionDate={repairsCompletionDate}
-                  noFaultExplanation={noFaultExplanation} signerRole={signerRole}
+                  dueMonths={dueMonths}
+                  violationTerm={violationTerm}
+                  violationDescription={violationDescription}
+                  priorNoticeDate={priorNoticeDate}
+                  substantialChecks={substantialChecks}
+                  noFaultReason={noFaultReason}
+                  repairsCompletionDate={repairsCompletionDate}
+                  noFaultExplanation={noFaultExplanation}
+                  signerRole={signerRole}
                 />
               </div>
             </div>
           </div>
         )}
+
       </div>
     </div>
   )
