@@ -70,7 +70,18 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [editingProperty, setEditingProperty] = useState<{ id: string; name: string } | null>(null)
+  const [editingProperty, setEditingProperty] = useState<{
+    id: string
+    name: string
+    currentData: {
+      mortgage_payment: number | null
+      mortgage_balance: number | null
+      mortgage_rate: number | null
+      mortgage_lender: string | null
+      property_tax: number | null
+      insurance_premium: number | null
+    }
+  } | null>(null)
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -224,7 +235,14 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
                       </p>
                     </div>
                     <button
-                      onClick={(e) => { e.stopPropagation(); setEditingProperty({ id: p.id, name: p.name }) }}
+                      onClick={(e) => { e.stopPropagation(); setEditingProperty({ id: p.id, name: p.name, currentData: {
+                        mortgage_payment: p.mortgagePayment,
+                        mortgage_balance: p.mortgageBalance,
+                        mortgage_rate: p.mortgageRate,
+                        mortgage_lender: p.mortgageLender ?? null,
+                        property_tax: p.propertyTax ? p.propertyTax * 12 : null,
+                        insurance_premium: p.insurance ? p.insurance * 12 : null,
+                      } }) }}
                       className="px-3 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:border-[#1C7BC0] hover:text-[#1C7BC0] bg-white transition-colors mr-2"
                     >
                       Edit
@@ -342,6 +360,7 @@ export default function FinancialsClient({ properties, portfolio }: Props) {
         <FinancialUploadModal
           propertyId={editingProperty.id}
           propertyName={editingProperty.name}
+          currentData={editingProperty.currentData}
           onClose={() => setEditingProperty(null)}
           onSaved={() => { setEditingProperty(null); window.location.reload() }}
         />

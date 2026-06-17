@@ -22,6 +22,7 @@ type ExtractedData = {
 type Props = {
   propertyId: string
   propertyName: string
+  currentData?: Partial<ExtractedData>
   onClose: () => void
   onSaved: () => void
 }
@@ -49,12 +50,12 @@ const FIELD_LABELS: Record<string, string> = {
   water_account: 'Water account #',
 }
 
-export default function FinancialUploadModal({ propertyId, propertyName, onClose, onSaved }: Props) {
+export default function FinancialUploadModal({ propertyId, propertyName, currentData, onClose, onSaved }: Props) {
   const [step, setStep] = useState<'upload' | 'extracting' | 'review' | 'saving' | 'done' | 'error'>('upload')
   const [errorMsg, setErrorMsg] = useState('')
   const [fileName, setFileName] = useState('')
   const [documentType, setDocumentType] = useState('')
-  const [form, setForm] = useState<Partial<ExtractedData>>({})
+  const [form, setForm] = useState<Partial<ExtractedData>>(currentData ?? {})
   const [extractedFields, setExtractedFields] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement>(null)
 
