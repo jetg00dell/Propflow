@@ -113,6 +113,9 @@ export default function FinancialUploadModal({ propertyId, propertyName, current
       }
     }
 
+    console.log('form.lender value at save time:', form.lender)
+    console.log('full form state at save time:', JSON.stringify(form))
+
     if (form.lender !== null && form.lender !== undefined && form.lender !== '') {
       updatePayload['mortgage_lender'] = form.lender
     }
