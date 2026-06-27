@@ -10,16 +10,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const { status, notes, tenant_name, tenant_email, property_name, unit_number, title } = body
 
+  const updatePayload = { status, notes, updated_at: new Date().toISOString() }
+  console.log('[maintenance PATCH] id:', id)
+  console.log('[maintenance PATCH] request body:', JSON.stringify(body))
+  console.log('[maintenance PATCH] update payload sent to Supabase:', JSON.stringify(updatePayload))
+
   const { data: request, error } = await supabase
     .from('maintenance_requests')
-    .update({ status, notes, updated_at: new Date().toISOString() })
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single()
 
   if (error) {
-    console.error('[maintenance PATCH] Supabase update error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[maintenance PATCH] Supabase update error — message:', error.message)
+    console.error('[maintenance PATCH] Supabase update error — code:', error.code)
+    console.error('[maintenance PATCH] Supabase update error — details:', error.details)
+    console.error('[maintenance PATCH] Supabase update error — hint:', (error as any).hint)
+    console.error('[maintenance PATCH] Supabase update error — full object:', JSON.stringify(error))
+    return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 })
   }
 
   const statusLabel = { open: 'Open', in_progress: 'In Progress', resolved: 'Resolved' }[status as string] ?? status
