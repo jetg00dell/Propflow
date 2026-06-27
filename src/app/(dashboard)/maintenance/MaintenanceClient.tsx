@@ -274,7 +274,7 @@ export default function MaintenanceClient({ requests: initial, properties, units
             return (
               <div key={req.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div
-                  className="flex items-start justify-between px-5 py-4 cursor-pointer hover:bg-[#F0F7FF] transition-colors"
+                  className={`flex items-start justify-between px-5 py-4 cursor-pointer transition-colors ${req.status === 'completed' ? 'hover:bg-gray-50' : 'hover:bg-[#F0F7FF]'}`}
                   onClick={() => {
                     const nextId = isExpanded ? null : req.id
                     setExpanded(nextId)
@@ -297,8 +297,8 @@ export default function MaintenanceClient({ requests: initial, properties, units
                         {req.status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
                       </span>
                     </div>
-                    <p className="text-sm font-semibold text-[#1A2B4A]">{req.title}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{req.property_name} · Unit {req.unit_number} · {req.tenant_name}</p>
+                    <p className={`text-sm font-semibold text-[#1A2B4A] ${req.status === 'completed' ? 'line-through opacity-60' : ''}`}>{req.title}</p>
+                    <p className={`text-xs text-gray-400 mt-0.5 ${req.status === 'completed' ? 'opacity-50' : ''}`}>{req.property_name} · Unit {req.unit_number} · {req.tenant_name}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-gray-400">{formatDate(req.created_at)}</p>
