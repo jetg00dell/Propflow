@@ -31,7 +31,7 @@ const URGENCY_COLORS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   open: 'bg-yellow-50 text-yellow-700',
   in_progress: 'bg-blue-50 text-[#1C7BC0]',
-  resolved: 'bg-green-50 text-green-700',
+  completed: 'bg-green-50 text-green-700',
 }
 
 function formatDate(iso: string) {
@@ -182,7 +182,7 @@ export default function MaintenanceClient({ requests: initial, properties, units
   tenants: TenantOption[]
 }) {
   const [requests, setRequests] = useState(initial)
-  const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'resolved'>('all')
+  const [filter, setFilter] = useState<'all' | 'open' | 'in_progress' | 'completed'>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [updating, setUpdating] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
@@ -195,7 +195,7 @@ export default function MaintenanceClient({ requests: initial, properties, units
     all: requests.length,
     open: requests.filter((r) => r.status === 'open').length,
     in_progress: requests.filter((r) => r.status === 'in_progress').length,
-    resolved: requests.filter((r) => r.status === 'resolved').length,
+    completed: requests.filter((r) => r.status === 'completed').length,
   }
 
   async function updateStatus(req: Request, status: string) {
@@ -251,7 +251,7 @@ export default function MaintenanceClient({ requests: initial, properties, units
         </div>
 
         <div className="grid grid-cols-4 gap-3 mb-6">
-          {(['all', 'open', 'in_progress', 'resolved'] as const).map((s) => (
+          {(['all', 'open', 'in_progress', 'completed'] as const).map((s) => (
             <button
               key={s}
               onClick={() => setFilter(s)}
@@ -370,9 +370,9 @@ export default function MaintenanceClient({ requests: initial, properties, units
                           Mark In Progress
                         </button>
                       )}
-                      {req.status !== 'resolved' && (
+                      {req.status !== 'completed' && (
                         <button
-                          onClick={() => updateStatus(req, 'resolved')}
+                          onClick={() => updateStatus(req, 'completed')}
                           disabled={updating === req.id}
                           className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                         >

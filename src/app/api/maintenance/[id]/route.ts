@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const { status, notes, tenant_name, tenant_email, property_name, unit_number, title } = body
 
-  const updatePayload = { status, notes, updated_at: new Date().toISOString() }
+  const updatePayload = { status, notes }
   console.log('[maintenance PATCH] id:', id)
   console.log('[maintenance PATCH] request body:', JSON.stringify(body))
   console.log('[maintenance PATCH] update payload sent to Supabase:', JSON.stringify(updatePayload))
@@ -31,9 +31,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 })
   }
 
-  const statusLabel = { open: 'Open', in_progress: 'In Progress', resolved: 'Resolved' }[status as string] ?? status
+  const statusLabel = { open: 'Open', in_progress: 'In Progress', completed: 'Completed' }[status as string] ?? status
 
-  if (tenant_email && (status === 'in_progress' || status === 'resolved')) {
+  if (tenant_email && (status === 'in_progress' || status === 'completed')) {
     try {
       await resend.emails.send({
         from: 'J Goodell Homes <noreply@jgoodellhomes.com>',
@@ -46,7 +46,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             <div style="background:#F5F6FA;border-radius:8px;padding:20px;margin-bottom:24px">
               <div style="margin-bottom:12px"><span style="font-size:12px;color:#6B7280;display:block">Property</span><span style="font-weight:500">${property_name} — Unit ${unit_number}</span></div>
               <div style="margin-bottom:12px"><span style="font-size:12px;color:#6B7280;display:block">Issue</span><span style="font-weight:500">${title}</span></div>
-              <div style="margin-bottom:12px"><span style="font-size:12px;color:#6B7280;display:block">Status</span><span style="font-weight:500;color:${status === 'resolved' ? '#059669' : '#1C7BC0'}">${statusLabel}</span></div>
+              <div style="margin-bottom:12px"><span style="font-size:12px;color:#6B7280;display:block">Status</span><span style="font-weight:500;color:${status === 'completed' ? '#059669' : '#1C7BC0'}">${statusLabel}</span></div>
               ${notes ? `<div><span style="font-size:12px;color:#6B7280;display:block">Note from management</span><span>${notes}</span></div>` : ''}
             </div>
             <p style="color:#6B7280;font-size:14px">— J Goodell Homes</p>
