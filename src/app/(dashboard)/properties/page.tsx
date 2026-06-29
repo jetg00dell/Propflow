@@ -27,7 +27,9 @@ export default async function PropertiesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: properties, error } = await supabase
+  const admin = createAdminClient()
+
+  const { data: properties, error } = await admin
     .from('properties')
     .select(`
       id,
@@ -50,7 +52,6 @@ export default async function PropertiesPage() {
 
   const allUnitIds = (properties ?? []).flatMap((p) => (p.units ?? []).map((u: any) => u.id))
 
-  const admin = createAdminClient()
   const { data: activeLeases } = allUnitIds.length > 0
     ? await admin
         .from('leases')
