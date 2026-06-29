@@ -83,7 +83,9 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: property, error: propertyError } = await supabase
+  const admin = createAdminClient()
+
+  const { data: property, error: propertyError } = await admin
     .from('properties')
     .select(`
       id,
@@ -114,7 +116,6 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   }
   if (!property) notFound()
 
-  const admin = createAdminClient()
   const unitIds = (property.units ?? []).map((u: any) => u.id)
 
   const { data: leases } = unitIds.length > 0
