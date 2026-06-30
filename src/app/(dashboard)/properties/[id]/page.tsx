@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import PropertyFinancialsCard from './PropertyFinancialsCard'
+import EditUtilitiesButton from './EditUtilitiesButton'
 
 function getPropertyTypeLabel(type: string) {
   const labels: Record<string, string> = {
@@ -201,9 +202,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
               </span>
             </div>
           </div>
-          <button className="bg-[#1C7BC0] hover:bg-[#1669A8] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
-            Edit Property
-          </button>
+          <EditUtilitiesButton property={property as any} />
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
