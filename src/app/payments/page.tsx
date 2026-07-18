@@ -30,7 +30,7 @@ export default async function PaymentsPage() {
 
   const { data: activeLeases, error: activeLeasesError } = await admin
     .from('leases')
-    .select('id, unit_id, monthly_rent')
+    .select('id, unit_id, monthly_rent, start_date')
     .eq('status', 'active')
 
   if (activeLeasesError) console.error('[payments] active leases query error:', activeLeasesError)
@@ -139,6 +139,7 @@ export default async function PaymentsPage() {
       ha_amount: null,
       tenant_amount: null,
       monthly_rent: (l.monthly_rent ?? null) as number | null,
+      start_date: (l.start_date ?? null) as string | null,
     }
   })
 

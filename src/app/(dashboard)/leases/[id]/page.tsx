@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import LeaseTermsCard from './LeaseTermsCard'
 import DocumentsSection from './DocumentsSection'
+import LeasePackageButton from './LeasePackageButton'
 
 function StatusBadge({ status }: { status: string | null }) {
   if (status === 'active')
@@ -46,7 +47,7 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
   if (unit) {
     const { data } = await admin
       .from('properties')
-      .select('id, name, address, city, state, year_built')
+      .select('id, name, address, city, state, year_built, owner_entity, is_cares_act')
       .eq('id', unit.property_id)
       .single()
     property = data
@@ -94,7 +95,32 @@ export default async function LeaseDetailPage({ params }: { params: Promise<{ id
             <p className="text-gray-500 mt-0.5">{property.address}, {property.city}, {property.state}</p>
           )}
         </div>
-        <StatusBadge status={lease.status} />
+        <div className="flex items-center gap-3">
+          <StatusBadge status={lease.status} />
+          <LeasePackageButton data={{
+            tenants: leaseTenantsList as any,
+            property: property ? {
+              address: property.address,
+              city: property.city,
+              state: property.state,
+              owner_entity: (property as any).owner_entity ?? null,
+              is_cares_act: (property as any).is_cares_act ?? null,
+              year_built: property.year_built ?? null,
+            } : null,
+            unit: unit ? { unit_number: unit.unit_number } : null,
+            lease: {
+              start_date: (lease.start_date as string | null) ?? null,
+              end_date: (lease.end_date as string | null) ?? null,
+              monthly_rent: (lease.monthly_rent as number | null) ?? null,
+              security_deposit: (lease.security_deposit as number | null) ?? null,
+              pet_rent: (lease.pet_rent as number | null) ?? null,
+              pet_deposit: (lease.pet_deposit as number | null) ?? null,
+              rent_due_day: (lease.rent_due_day as number | null) ?? null,
+              grace_period_days: (lease.grace_period_days as number | null) ?? null,
+              late_fee_flat: (lease.late_fee_flat as number | null) ?? null,
+            },
+          }} />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

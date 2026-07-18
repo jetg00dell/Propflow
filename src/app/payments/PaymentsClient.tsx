@@ -1,8 +1,8 @@
 "use client"
 
-import { Fragment, useState, useMemo } from 'react'
+import { Fragment, useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, XCircle, Plus, ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { CheckCircle2, XCircle, Plus, ChevronDown, ChevronRight, Pencil, Trash2, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import RecordRentPaymentModal from '@/components/RecordRentPaymentModal'
 
@@ -38,6 +38,53 @@ type ActiveLease = {
   ha_amount: number | null
   tenant_amount: number | null
   monthly_rent: number | null
+  start_date: string | null
+}
+
+type LedgerLeaseInfo = {
+  id: string
+  start_date: string | null
+  end_date: string | null
+  monthly_rent: number | null
+  property_name: string | null
+  unit_number: string | null
+  tenant_name: string | null
+}
+
+type LedgerCharge = {
+  id: string
+  charge_month: string
+  ha_amount: number
+  tenant_amount: number
+  total_due: number
+  notes: string | null
+}
+
+type LedgerPayment = {
+  id: string
+  charge_id: string
+  amount: number
+  paid_by: string
+  method: string
+  paid_date: string
+  notes: string | null
+}
+
+type LedgerData = {
+  lease: LedgerLeaseInfo
+  charges: LedgerCharge[]
+  payments: LedgerPayment[]
+}
+
+type LedgerRow = {
+  key: string
+  date: string
+  type: 'Charge' | 'Payment'
+  description: string
+  notes: string | null
+  charges: number | null
+  payments: number | null
+  balance: number
 }
 
 function fmt(n: number) {
@@ -422,6 +469,264 @@ function chargeStatus(c: ChargeRow, isFuture: boolean): ChargeStatus {
   return 'Partial'
 }
 
+function LedgerView({ leases }: { leases: ActiveLease[] }) {
+  const today = todayStr()
+  const currentYear = new Date().getFullYear()
+  const ytdStart = `${currentYear}-01-01`
+
+  const sortedLeases = useMemo(() =>
+    [...leases].sort((a, b) => {
+      const aLast = a.tenant_name?.split(' ').slice(-1)[0] ?? ''
+      const bLast = b.tenant_name?.split(' ').slice(-1)[0] ?? ''
+      return aLast.localeCompare(bLast)
+    }), [leases])
+
+  const [selectedLeaseId, setSelectedLeaseId] = useState(sortedLeases[0]?.id ?? '')
+  const [dateMode, setDateMode] = useState<'ytd' | 'lease' | 'custom'>('ytd')
+  const [customFrom, setCustomFrom] = useState(ytdStart)
+  const [customTo, setCustomTo] = useState(today)
+  const [ledgerData, setLedgerData] = useState<LedgerData | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const selectedLease = leases.find(l => l.id === selectedLeaseId)
+
+  const { from, to } = useMemo(() => {
+    if (dateMode === 'ytd') return { from: ytdStart, to: today }
+    if (dateMode === 'lease') return { from: selectedLease?.start_date ?? ytdStart, to: today }
+    return { from: customFrom, to: customTo }
+  }, [dateMode, selectedLease?.start_date, customFrom, customTo, today, ytdStart])
+
+  useEffect(() => {
+    if (!selectedLeaseId || !from || !to) return
+    setLoading(true)
+    setLedgerData(null)
+    fetch(`/api/payments/ledger?lease_id=${encodeURIComponent(selectedLeaseId)}&from=${from}&to=${to}`)
+      .then(r => r.json())
+      .then((data: LedgerData) => { setLedgerData(data); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [selectedLeaseId, from, to])
+
+  const rows = useMemo((): LedgerRow[] => {
+    if (!ledgerData) return []
+
+    type Evt = { date: string; type: 'Charge' | 'Payment'; data: LedgerCharge | LedgerPayment; key: string }
+    const events: Evt[] = []
+
+    for (const c of ledgerData.charges) {
+      events.push({ date: c.charge_month, type: 'Charge', data: c, key: `c-${c.id}` })
+    }
+    for (const p of ledgerData.payments) {
+      events.push({ date: p.paid_date, type: 'Payment', data: p, key: `p-${p.id}` })
+    }
+
+    events.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date)
+      return a.type === 'Charge' ? -1 : 1
+    })
+
+    let balance = 0
+    return events.map(e => {
+      if (e.type === 'Charge') {
+        const c = e.data as LedgerCharge
+        balance += c.total_due
+        return {
+          key: e.key,
+          date: c.charge_month,
+          type: 'Charge' as const,
+          description: `Rent – ${formatMonth(c.charge_month)}`,
+          notes: c.notes,
+          charges: c.total_due,
+          payments: null,
+          balance,
+        }
+      } else {
+        const p = e.data as LedgerPayment
+        balance -= p.amount
+        const who = p.paid_by === 'ha' ? 'HA' : 'Tenant'
+        return {
+          key: e.key,
+          date: p.paid_date,
+          type: 'Payment' as const,
+          description: `${who} payment via ${methodLabel(p.method)}`,
+          notes: p.notes,
+          charges: null,
+          payments: p.amount,
+          balance,
+        }
+      }
+    })
+  }, [ledgerData])
+
+  const totalCharged = rows.reduce((s, r) => s + (r.charges ?? 0), 0)
+  const totalPaid = rows.reduce((s, r) => s + (r.payments ?? 0), 0)
+  const finalBalance = totalCharged - totalPaid
+
+  const dateRangeLabel = `${formatDate(from)} – ${formatDate(to)}`
+
+  return (
+    <>
+      {/* Controls — hidden in print */}
+      <div className="no-print bg-white border border-gray-200 rounded-xl p-4 mb-4">
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Tenant</label>
+            <select
+              value={selectedLeaseId}
+              onChange={e => setSelectedLeaseId(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30 min-w-56"
+            >
+              {sortedLeases.map(l => {
+                const parts = (l.tenant_name ?? '').split(' ')
+                const last = parts.slice(-1)[0]
+                const first = parts.slice(0, -1).join(' ')
+                const display = last && first ? `${last}, ${first}` : (l.tenant_name ?? '—')
+                return (
+                  <option key={l.id} value={l.id}>
+                    {display} — {l.property_name} U{l.unit_number}
+                  </option>
+                )
+              })}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-500 whitespace-nowrap">Period</label>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              {(['ytd', 'lease', 'custom'] as const).map((mode, i) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDateMode(mode)}
+                  className={`px-3 py-2 text-xs font-medium transition-colors ${i > 0 ? 'border-l border-gray-200' : ''} ${dateMode === mode ? 'bg-[#1C7BC0] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  {mode === 'ytd' ? 'YTD' : mode === 'lease' ? 'Lease to Date' : 'Custom'}
+                </button>
+              ))}
+            </div>
+            {dateMode === 'custom' && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customFrom}
+                  onChange={e => setCustomFrom(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30 w-36"
+                />
+                <span className="text-xs text-gray-400">to</span>
+                <input
+                  type="date"
+                  value={customTo}
+                  onChange={e => setCustomTo(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30 w-36"
+                />
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="ml-auto flex items-center gap-2 bg-[#1C7BC0] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1C7BC0]/90 transition-colors"
+          >
+            <FileText size={14} /> Export PDF
+          </button>
+        </div>
+      </div>
+
+      {/* Print-only container */}
+      <div className="print-ledger-only bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {/* Print header */}
+        <div className="print-only px-6 pt-6 pb-4 border-b border-gray-200">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-2xl font-bold text-[#1A2B4A]">PropFlow</p>
+              <p className="text-sm text-gray-400 mt-0.5">Tenant Ledger</p>
+            </div>
+            <div className="text-right text-sm">
+              <p className="font-semibold text-[#1A2B4A]">{ledgerData?.lease.tenant_name ?? '—'}</p>
+              <p className="text-gray-500">{ledgerData?.lease.property_name ?? '—'} · Unit {ledgerData?.lease.unit_number ?? '—'}</p>
+              <p className="text-gray-400 mt-0.5">{dateRangeLabel}</p>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="no-print py-12 text-center text-sm text-gray-400">Loading…</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 bg-[#F5F6FA]">
+                  <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+                  <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Type</th>
+                  <th className="text-left px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Description</th>
+                  <th className="text-right px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Charges</th>
+                  <th className="text-right px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Payments</th>
+                  <th className="text-right px-5 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center text-gray-400 text-sm py-12">
+                      No transactions found for this period
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map(row => (
+                    <tr key={row.key} className="border-b border-gray-50">
+                      <td className="px-5 py-3 text-gray-500 whitespace-nowrap text-xs">{formatDate(row.date)}</td>
+                      <td className="px-5 py-3">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                          row.type === 'Charge' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'
+                        }`}>
+                          {row.type}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3">
+                        <p className="text-[#1A2B4A]">{row.description}</p>
+                        {row.notes && <p className="text-[10px] text-gray-400 mt-0.5">{row.notes}</p>}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {row.charges != null
+                          ? <span className="text-[#1A2B4A] font-medium">{fmt(row.charges)}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        {row.payments != null
+                          ? <span className="text-green-700 font-medium">{fmt(row.payments)}</span>
+                          : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-5 py-3 text-right">
+                        <span className={`font-semibold ${row.balance > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                          {fmt(Math.abs(row.balance))}{row.balance < 0 ? ' CR' : ''}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {rows.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-gray-200 bg-[#F5F6FA]">
+                    <td colSpan={3} className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Totals</td>
+                    <td className="px-5 py-3 text-right font-semibold text-[#1A2B4A]">{fmt(totalCharged)}</td>
+                    <td className="px-5 py-3 text-right font-semibold text-green-700">{fmt(totalPaid)}</td>
+                    <td className="px-5 py-3 text-right">
+                      <span className={`font-bold ${finalBalance > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                        {fmt(Math.abs(finalBalance))}{finalBalance < 0 ? ' CR' : ''}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 export default function PaymentsClient({ charges, leases }: {
   charges: ChargeRow[]
   leases: ActiveLease[]
@@ -429,7 +734,7 @@ export default function PaymentsClient({ charges, leases }: {
   const router = useRouter()
   const [expandedChargeId, setExpandedChargeId] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState('')
-  const [viewMode, setViewMode] = useState<'property' | 'tenant'>('property')
+  const [viewMode, setViewMode] = useState<'property' | 'tenant' | 'ledger'>('property')
   const [addChargeOpen, setAddChargeOpen] = useState(false)
   const [recordCharge, setRecordCharge] = useState<ChargeRow | null>(null)
   const [editCharge, setEditCharge] = useState<ChargeRow | null>(null)
@@ -524,34 +829,40 @@ export default function PaymentsClient({ charges, leases }: {
         <h1 className="text-xl font-semibold text-[#1A2B4A]">Payments</h1>
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-            {(['property', 'tenant'] as const).map((mode, i) => (
+            {(['property', 'tenant', 'ledger'] as const).map((mode, i) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
                 className={`px-3 py-2 text-sm font-medium transition-colors ${i > 0 ? 'border-l border-gray-200' : ''} ${viewMode === mode ? 'bg-[#1C7BC0] text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
               >
-                {mode === 'property' ? 'By Property' : 'By Tenant'}
+                {mode === 'property' ? 'By Property' : mode === 'tenant' ? 'By Tenant' : 'Ledger'}
               </button>
             ))}
           </div>
-          <select
-            value={selectedMonth}
-            onChange={e => setSelectedMonth(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
-          >
-            <option value="">All months</option>
-            {availableMonths.map(m => (
-              <option key={m} value={m}>{formatMonth(`${m}-01`)}</option>
-            ))}
-          </select>
-          <button onClick={() => setStandaloneRecord(true)}
-            className="flex items-center gap-2 border border-[#1C7BC0] text-[#1C7BC0] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#F0F7FF] transition-colors">
-            Record Payment
-          </button>
-          <button onClick={() => setAddChargeOpen(true)}
-            className="flex items-center gap-2 bg-[#1C7BC0] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1C7BC0]/90 transition-colors">
-            <Plus size={15} /> Add Charge
-          </button>
+          {viewMode !== 'ledger' && (
+            <select
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-[#1A2B4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1C7BC0]/30"
+            >
+              <option value="">All months</option>
+              {availableMonths.map(m => (
+                <option key={m} value={m}>{formatMonth(`${m}-01`)}</option>
+              ))}
+            </select>
+          )}
+          {viewMode !== 'ledger' && (
+            <button onClick={() => setStandaloneRecord(true)}
+              className="flex items-center gap-2 border border-[#1C7BC0] text-[#1C7BC0] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#F0F7FF] transition-colors">
+              Record Payment
+            </button>
+          )}
+          {viewMode !== 'ledger' && (
+            <button onClick={() => setAddChargeOpen(true)}
+              className="flex items-center gap-2 bg-[#1C7BC0] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#1C7BC0]/90 transition-colors">
+              <Plus size={15} /> Add Charge
+            </button>
+          )}
         </div>
       </div>
 
@@ -564,6 +875,11 @@ export default function PaymentsClient({ charges, leases }: {
         ))}
       </div>
 
+      {viewMode === 'ledger' ? (
+        <LedgerView leases={leases} />
+      ) : null}
+
+      {viewMode !== 'ledger' && (
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -713,6 +1029,7 @@ export default function PaymentsClient({ charges, leases }: {
           </table>
         </div>
       </div>
+      )}
 
       {recordCharge && (
         <RecordRentPaymentModal
