@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import MaintenanceClient from './MaintenanceClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function MaintenancePage() {
   const supabase = createAdminClient()
 
