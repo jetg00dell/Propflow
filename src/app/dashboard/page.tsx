@@ -22,15 +22,18 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     admin.from('units').select('id, status'),
     admin.from('payments').select('id, amount, status, paid_date, due_date, type').order('created_at', { ascending: false }).limit(5),
-    admin.from('maintenance_requests').select('id, title, urgency, status, created_at, category').eq('status', 'open').order('created_at', { ascending: false }).limit(4),
+    admin.from('maintenance_requests').select('id, title, urgency, status, created_at, category, unit_id').eq('status', 'open').order('created_at', { ascending: false }).limit(4),
     admin.from('leases').select('id, end_date, unit_id').gte('end_date', now.toISOString()).lte('end_date', in90.toISOString()).order('end_date', { ascending: true }),
     admin.from('leases').select('id, monthly_rent').eq('status', 'active'),
   ])
 
-  // Resolve unit + property names for expiring leases
-  const unitIds = [...new Set((leases ?? []).map((l: any) => l.unit_id).filter(Boolean))]
-  const { data: leaseUnits } = unitIds.length > 0
-    ? await admin.from('units').select('id, unit_number, property_id').in('id', unitIds)
+  // Resolve unit + property names for expiring leases and maintenance items
+  const leaseUnitIds = (leases ?? []).map((l: any) => l.unit_id).filter(Boolean)
+  const maintenanceUnitIds = (maintenance ?? []).map((m: any) => m.unit_id).filter(Boolean)
+  const allUnitIds = [...new Set([...leaseUnitIds, ...maintenanceUnitIds])]
+
+  const { data: leaseUnits } = allUnitIds.length > 0
+    ? await admin.from('units').select('id, unit_number, property_id').in('id', allUnitIds)
     : { data: [] }
 
   const propertyIds = [...new Set((leaseUnits ?? []).map((u: any) => u.property_id).filter(Boolean))]
@@ -52,13 +55,23 @@ export default async function DashboardPage() {
     }
   })
 
+  const enrichedMaintenance = (maintenance ?? []).map((m: any) => {
+    const unit = unitMap[m.unit_id]
+    const property = unit ? propertyMap[unit.property_id] : null
+    return {
+      ...m,
+      unit_number: unit?.unit_number ?? null,
+      property_name: property?.name ?? null,
+    }
+  })
+
   return (
     <Dashboard>
       <DashboardHome
         units={units ?? []}
         activeLeases={activeLeases ?? []}
         recentPayments={payments ?? []}
-        maintenanceItems={maintenance ?? []}
+        maintenanceItems={enrichedMaintenance}
         expiringLeases={enrichedLeases}
       />
     </Dashboard>

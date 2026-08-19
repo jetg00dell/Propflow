@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { ChevronRight, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 function StatCard({ label, value, sub, trend, trendVal }: any) {
@@ -196,29 +197,33 @@ export default function DashboardHome({ units, activeLeases, recentPayments, mai
         <div className="col-span-3 bg-white border border-gray-200 rounded-xl p-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-[#1A2B4A]">Open Maintenance</h2>
-            <button className="text-xs text-[#1C7BC0] flex items-center gap-1 hover:opacity-80 transition-opacity">
+            <Link href="/maintenance" className="text-xs text-[#1C7BC0] flex items-center gap-1 hover:opacity-80 transition-opacity">
               View all <ChevronRight size={12} />
-            </button>
+            </Link>
           </div>
           {maintenanceItems.length === 0 ? (
             <p className="text-gray-400 text-sm text-center py-8">No open maintenance requests</p>
           ) : (
             <div className="grid grid-cols-4 gap-3">
               {maintenanceItems.map((m, i) => (
-                <div key={i} className="bg-[#F5F6FA] border border-gray-200 rounded-xl p-4 hover:border-[#1C7BC0] transition-colors cursor-pointer">
+                <Link key={i} href="/maintenance" className="block bg-[#F5F6FA] border border-gray-200 rounded-xl p-4 hover:border-[#1C7BC0] transition-colors">
                   <div className="flex items-center gap-2 mb-3">
                     <PriorityDot priority={m.urgency} />
                     <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">{m.urgency}</span>
                     <span className="ml-auto text-[10px] text-gray-400">{timeAgo(m.created_at)}</span>
                   </div>
                   <p className="text-sm font-medium text-[#1A2B4A] mb-1 leading-tight">{m.title}</p>
-                  <p className="text-xs text-gray-500">{m.category ?? ""}</p>
+                  <p className="text-xs text-gray-500">
+                    {m.property_name && m.unit_number
+                      ? `${m.property_name} — Unit ${m.unit_number}`
+                      : (m.category ?? "")}
+                  </p>
                   <div className="mt-3 pt-3 border-t border-gray-200">
                     <span className="text-[10px] uppercase tracking-wider font-semibold text-gray-400">
                       {m.status?.replace("_", " ")}
                     </span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

@@ -37,6 +37,7 @@ export default async function PropertiesPage() {
       city,
       state,
       property_type,
+      is_cares_act,
       units (
         id,
         unit_number,
@@ -132,11 +133,16 @@ export default async function PropertiesPage() {
               </p>
             </div>
 
-            {/* Type badge */}
-            <div className="mb-4">
+            {/* Type badge + CARES Act badge */}
+            <div className="mb-4 flex items-center gap-2">
               <span className="bg-[#F0F7FF] text-[#1C7BC0] text-xs px-2 py-0.5 rounded-md">
                 {getPropertyTypeLabel(property.property_type ?? '')}
               </span>
+              {property.is_cares_act && (
+                <span className="bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-md">
+                  CARES Act
+                </span>
+              )}
             </div>
 
             {/* Stats row */}
