@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowUp, ArrowDown } from 'lucide-react'
+import { ArrowUp, ArrowDown, Plus } from 'lucide-react'
 
 type TenantRow = {
   id: string
@@ -123,6 +123,13 @@ export default function TenantsClient({ tenants, stats }: { tenants: TenantRow[]
           <h1 className="text-2xl font-semibold text-[#1A2B4A]">Tenants</h1>
           <p className="text-gray-500 text-sm mt-1">{stats.totalTenants} tenants</p>
         </div>
+        <Link
+          href="/tenants/new"
+          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#1C7BC0] hover:bg-[#1C7BC0]/90 text-white text-sm font-semibold rounded-lg transition-colors"
+        >
+          <Plus size={15} />
+          Add Tenant
+        </Link>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
