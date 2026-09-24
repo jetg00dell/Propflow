@@ -146,6 +146,7 @@ function PaidCell({ expected, paid, isFuture }: { expected: number; paid: number
 }
 
 type ChargeStatus = 'Paid' | 'Partial' | 'Unpaid' | 'Overpaid' | 'Pending'
+type StatusFilter = 'All' | 'Paid' | 'Partial' | 'Unpaid' | 'Pending'
 
 function StatusBadge({ status }: { status: ChargeStatus }) {
   const styles: Record<ChargeStatus, string> = {
@@ -734,6 +735,7 @@ export default function PaymentsClient({ charges, leases }: {
   const router = useRouter()
   const [expandedChargeId, setExpandedChargeId] = useState<string | null>(null)
   const [selectedMonth, setSelectedMonth] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('All')
   const [viewMode, setViewMode] = useState<'property' | 'tenant' | 'ledger'>('property')
   const [addChargeOpen, setAddChargeOpen] = useState(false)
   const [recordCharge, setRecordCharge] = useState<ChargeRow | null>(null)
@@ -752,21 +754,44 @@ export default function PaymentsClient({ charges, leases }: {
     return months.sort((a, b) => b.localeCompare(a))
   }, [charges])
 
-  // Table rows respect the filter; "All" shows everything
+  // Month filter
   const filteredCharges = selectedMonth
     ? charges.filter(c => c.charge_month.startsWith(selectedMonth))
     : charges
 
+  // Per-status counts (based on month-filtered charges; Overpaid counts as Paid)
+  const statusCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = { All: filteredCharges.length, Paid: 0, Partial: 0, Unpaid: 0, Pending: 0 }
+    for (const c of filteredCharges) {
+      const s = chargeStatus(c, isFutureMonth(c.charge_month))
+      if (s === 'Paid' || s === 'Overpaid') counts.Paid++
+      else if (s === 'Partial') counts.Partial++
+      else if (s === 'Unpaid') counts.Unpaid++
+      else if (s === 'Pending') counts.Pending++
+    }
+    return counts
+  }, [filteredCharges])
+
+  // Status filter applied on top of month filter
+  const statusFilteredCharges = useMemo(() => {
+    if (statusFilter === 'All') return filteredCharges
+    return filteredCharges.filter(c => {
+      const s = chargeStatus(c, isFutureMonth(c.charge_month))
+      if (statusFilter === 'Paid') return s === 'Paid' || s === 'Overpaid'
+      return s === statusFilter
+    })
+  }, [filteredCharges, statusFilter])
+
   const sortedCharges = useMemo(() => {
     if (viewMode === 'tenant') {
-      return [...filteredCharges].sort((a, b) => {
+      return [...statusFilteredCharges].sort((a, b) => {
         const aLast = a.tenant_name?.split(' ').slice(-1)[0] ?? ''
         const bLast = b.tenant_name?.split(' ').slice(-1)[0] ?? ''
         return aLast.localeCompare(bLast)
       })
     }
-    return filteredCharges
-  }, [filteredCharges, viewMode])
+    return statusFilteredCharges
+  }, [statusFilteredCharges, viewMode])
 
   // Stats always reflect the selected month, defaulting to current month when "All"
   const statsMonthPrefix = selectedMonth || currentMonthPrefix
@@ -875,6 +900,26 @@ export default function PaymentsClient({ charges, leases }: {
         ))}
       </div>
 
+      {/* Status filter — shown in all views; only affects By Property / By Tenant tables */}
+      {viewMode !== 'ledger' && (
+        <div className="flex items-center gap-2 mb-4">
+          {(['All', 'Paid', 'Partial', 'Unpaid', 'Pending'] as const).map(s => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                statusFilter === s
+                  ? 'bg-[#1C7BC0] border-[#1C7BC0] text-white font-medium'
+                  : 'bg-white border-gray-200 text-[#1A2B4A] hover:border-gray-300'
+              }`}
+            >
+              {s === 'All' ? `All (${statusCounts.All})` : `${s} (${statusCounts[s]})`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {viewMode === 'ledger' ? (
         <LedgerView leases={leases} />
       ) : null}
@@ -901,7 +946,9 @@ export default function PaymentsClient({ charges, leases }: {
               {sortedCharges.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center text-gray-400 text-sm py-12">
-                    {selectedMonth ? `No charges for ${formatMonth(`${selectedMonth}-01`)}` : 'No rent charges found'}
+                    {statusFilter !== 'All'
+                      ? `No ${statusFilter.toLowerCase()} charges${selectedMonth ? ` for ${formatMonth(`${selectedMonth}-01`)}` : ''}`
+                      : selectedMonth ? `No charges for ${formatMonth(`${selectedMonth}-01`)}` : 'No rent charges found'}
                   </td>
                 </tr>
               ) : (
